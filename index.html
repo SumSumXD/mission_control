@@ -524,6 +524,10 @@
           dataForm.office_thursday_close.value = oh.thursday?.close || '';
           dataForm.office_friday_open.value = oh.friday?.open || '';
           dataForm.office_friday_close.value = oh.friday?.close || '';
+          dataForm.office_saturday_open.value = oh.saturday?.open || '';
+          dataForm.office_saturday_close.value = oh.saturday?.close || '';
+          dataForm.office_sunday_open.value = oh.sunday?.open || '';
+          dataForm.office_sunday_close.value = oh.sunday?.close || '';
           const vac = d.vacation || {};
           dataForm.on_vacation.checked = !!(vac.from || vac.to);
           // Urlaubsdaten als Timestamp -> Input (YYYY-MM-DD)
@@ -588,7 +592,9 @@
           tuesday: { open: dataForm.office_tuesday_open.value, close: dataForm.office_tuesday_close.value },
           wednesday: { open: dataForm.office_wednesday_open.value, close: dataForm.office_wednesday_close.value },
           thursday: { open: dataForm.office_thursday_open.value, close: dataForm.office_thursday_close.value },
-          friday: { open: dataForm.office_friday_open.value, close: dataForm.office_friday_close.value }
+          friday: { open: dataForm.office_friday_open.value, close: dataForm.office_friday_close.value },
+          saturday: { open: dataForm.office_saturday_open.value, close: dataForm.office_saturday_close.value },
+          sunday: { open: dataForm.office_sunday_open.value, close: dataForm.office_sunday_close.value }
         }
       };
       // Supervisoren speichern (nur für Supervisor-Rolle)
@@ -696,6 +702,8 @@
           <div><label>Mittwoch:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_wednesday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_wednesday_close" placeholder="HH:MM" style="width:85px;" /></div>
           <div><label>Donnerstag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_thursday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_thursday_close" placeholder="HH:MM" style="width:85px;" /></div>
           <div><label>Freitag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_friday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_friday_close" placeholder="HH:MM" style="width:85px;" /></div>
+          <div><label>Samstag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_saturday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_saturday_close" placeholder="HH:MM" style="width:85px;" /></div>
+          <div><label>Sonntag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_sunday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_sunday_close" placeholder="HH:MM" style="width:85px;" /></div>
         </div>
       </label>
       <label>Supervisoren:
