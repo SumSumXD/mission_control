@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Mission Control</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background: #f8f9fa; 
+      margin: 0; 
+      color: #333;
+    }
+    h1 { 
+      text-align: center; 
+      margin-top: 40px; 
+      color: #2c3e50;
+      font-weight: 600;
+      font-size: 2.2em;
+    }
+    .main-flex { 
+      display: flex; 
+      justify-content: center; 
+      align-items: flex-start; 
+      gap: 40px; 
+      max-width: 1000px; 
+      margin: 40px auto 0 auto; 
+      padding: 0 20px;
+    }
+    #login-form {
+      max-width: 380px;
+      margin: 80px auto 0 auto;
+      background: #ffffff;
+      padding: 50px 40px;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      text-align: left;
+    }
+    #login-form label { margin-top: 10px; text-align: left; }
+    #login-form label {
+      margin-top: 0;
+      font-weight: 600;
+      color: #333;
+      font-size: 0.95em;
+    }
+    #login-form input { width: 100%; padding: 6px; margin-top: 2px; }
+    #login-form input {
+      width: 100%;
+      padding: 12px 16px;
+      margin-top: 8px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 1em;
+      transition: border-color 0.2s ease;
+      box-sizing: border-box;
+    }
+    #login-form input:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+    #login-form button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 1.1em;
+      font-weight: 600;
+      text-align: center;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      box-sizing: border-box;
+    }
+    #login-form button:hover {
+      background: #0056b3;
+    }
+    #login-form button:active {
+      transform: translateY(1px);
+    }
+    .mitarbeiter-liste { 
+      background: #ffffff; 
+      border: none; 
+      margin-bottom: 20px; 
+      padding: 20px; 
+      min-width: 280px; 
+      max-width: 320px; 
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .mitarbeiter-liste ul { list-style: none; padding: 0; margin: 0; }
+    .mitarbeiter-liste li { 
+      padding: 12px 16px; 
+      border-bottom: 1px solid #f0f0f0; 
+      cursor: pointer; 
+      transition: background-color 0.2s ease;
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+    .mitarbeiter-liste li:hover {
+      background: #f8f9fa;
+    }
+    .mitarbeiter-liste li:last-child { border-bottom: none; }
+    .mitarbeiter-liste li.selected { 
+      background: #007bff; 
+      color: white;
+    }
+    .panel-form { 
+      background: #ffffff; 
+      border: none; 
+      padding: 30px; 
+      min-width: 320px; 
+      max-width: 400px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border-radius: 12px;
+    }
+    .panel-form.hidden { display: none; }
+    form label { display: block; margin-top: 10px; }
+    .inline-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    form label {
+      display: block; 
+      margin-top: 16px; 
+      font-weight: 600;
+      color: #333;
+      font-size: 0.95em;
+    }
+    form input, form select { 
+      width: 100%; 
+      padding: 12px 16px; 
+      margin-top: 8px; 
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 1em;
+      transition: border-color 0.2s ease;
+      box-sizing: border-box;
+    }
+    form input:focus, form select:focus {
+      outline: none;
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+    }
+    form input[type="checkbox"] {
+      width: auto;
+      margin-top: 0;
+      margin-right: 8px;
+    }
+    form button { 
+      margin-top: 20px; 
+      width: 100%; 
+      padding: 14px 20px;
+      font-size: 1.1em;
+      font-weight: 600;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      box-sizing: border-box;
+    }
+    form button:hover {
+      background: #0056b3;
+    }
+    form button:active {
+      transform: translateY(1px);
+    }
+    .form-actions { 
+      display: flex; 
+      gap: 12px; 
+      margin-top: 20px; 
+    }
+    .form-actions button:last-child {
+      background: #6c757d;
+    }
+    .form-actions button:last-child:hover {
+      background: #545b62;
+    }
+    .hidden { display: none !important; }
+    .logout-btn {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      padding: 8px 16px;
+      font-size: 0.95em;
+      font-weight: 600;
+      background: #6c757d;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 1000;
+      width: auto;
+      display: inline-block;
+      transition: background-color 0.2s ease;
+    }
+    .logout-btn:hover {
+      background: #545b62;
+    }
+    /* Status-Overlay */
+    #status-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.7);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+    #status-overlay .status-box {
+      background: #fff;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      box-shadow: 0 2px 16px #0002;
+      padding: 28px 36px;
+      font-size: 1.2em;
+      color: #333;
+      min-width: 180px;
+      text-align: center;
+    }
+    #office-hours-fields input[type="time"] {
+      width: 65px;
+      font-size: 0.90em;
+      padding: 1px 2px;
+      margin: 0 1px;
+    }
+    #office-hours-fields div {
+      font-size: 0.93em;
+      margin-bottom: 2px;
+      display: block;
+    }
+    #office-hours-fields label {
+      display: inline-block;
+      min-width: 80px;
+      font-weight: normal;
+    }
+    #vacation_from_label,
+    #vacation_to_label {
+      font-weight: normal !important;
+    }
+    .sae-logo {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      width: 120px;
+      height: auto;
+    }
+  </style>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnO3ryGISkTaGI7pjszsKesj1y8QBQrCo",
+      authDomain: "sae-wien-mobile.firebaseapp.com",
+      projectId: "sae-wien-mobile",
+      storageBucket: "sae-wien-mobile.firebasestorage.app",
+      messagingSenderId: "213331216851",
+      appId: "1:213331216851:web:c6879a150f531d17b90726"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Rollen, die angezeigt werden sollen
+    const ALLOWED_ROLES = [
+      "Staff",
+      "Academic Coordinator",
+      "Head of Instructor",
+      "Head Instructor",
+      "Supervisor",
+      "Campus Manager",
+      "Community Manager"
+    ];
+
+    // UI-Elemente
+    const loginForm = document.getElementById('login-form');
+    const dataForm = document.getElementById('data-form');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    // const statusDiv = document.getElementById('status'); // Entfernt
+    const statusOverlay = document.getElementById('status-overlay');
+    const statusBox = document.getElementById('status-box');
+    let loadingCount = 0;
+    let lastLoadingMsg = '';
+    // Neue Loading-Logik
+    function startLoading(msg) {
+      loadingCount++;
+      lastLoadingMsg = msg || 'Lädt...';
+      statusBox.textContent = lastLoadingMsg;
+      statusOverlay.style.display = 'flex';
+    }
+    function stopLoading() {
+      loadingCount = Math.max(0, loadingCount - 1);
+      if (loadingCount === 0) {
+        statusOverlay.style.display = 'none';
+        statusBox.textContent = '';
+      } else {
+        statusBox.textContent = lastLoadingMsg;
+      }
+    }
+    // Für Statusmeldungen ohne Ladevorgang (z.B. Fehler)
+    function showStatusOnce(msg, ms = 2000) {
+      statusBox.textContent = msg;
+      statusOverlay.style.display = 'flex';
+      setTimeout(() => {
+        if (loadingCount === 0) {
+          statusOverlay.style.display = 'none';
+          statusBox.textContent = '';
+        }
+      }, ms);
+    }
+    const mitarbeiterListeDiv = document.getElementById('mitarbeiter-liste');
+    const mitarbeiterUl = document.getElementById('mitarbeiter-ul');
+    let mitarbeiterDocs = [];
+    let selectedMitarbeiterId = null;
+
+    // Hilfsfunktion für Statusanzeige
+    function showStatus(msg) {
+      if (msg) {
+        statusBox.textContent = msg;
+        statusOverlay.style.display = 'flex';
+      } else {
+        statusOverlay.style.display = 'none';
+        statusBox.textContent = '';
+      }
+    }
+
+    // Auth-Status beobachten
+    onAuthStateChanged(auth, async user => {
+      if (user) {
+        // Nach Login: Prüfe Rolle in Firestore
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists() || userSnap.data().role !== 'admin') {
+          // Nicht admin: Logout und Meldung
+          await signOut(auth);
+          showStatusOnce('Kein Zugriff: Nur Admins erlaubt!', 2500);
+          return;
+        }
+        // Login-Formular ausblenden
+        loginForm.classList.add('hidden');
+        console.log('Login erfolgreich, Login-Formular wird ausgeblendet');
+        // Begrüßung anzeigen
+        const welcomeDiv = document.getElementById('welcome-message');
+        const userData = userSnap.data();
+        let userName;
+        if (userData.firstName && userData.lastName) {
+          userName = `${userData.firstName} ${userData.lastName}`;
+        } else if (userData.fullName) {
+          userName = userData.fullName;
+        } else if (userData.FullName) {
+          userName = userData.FullName;
+        } else if (userData.name) {
+          userName = userData.name;
+        } else {
+          userName = user.email;
+        }
+        welcomeDiv.textContent = `Servus, ${userName}!`;
+        welcomeDiv.style.display = 'block';
+        // Logout-Button einblenden
+        logoutBtn.classList.remove('hidden');
+        // Mitarbeiterliste zeigen
+        mitarbeiterListeDiv.classList.remove('hidden');
+        // Bearbeitungsformular ausblenden
+        dataForm.classList.add('hidden');
+        selectedMitarbeiterId = null;
+        Array.from(mitarbeiterUl.children).forEach(li => li.classList.remove('selected'));
+        loadMitarbeiterListe();
+      } else {
+        // Login-Formular einblenden
+        loginForm.classList.remove('hidden');
+        // Begrüßung ausblenden
+        document.getElementById('welcome-message').style.display = 'none';
+        // Logout-Button ausblenden
+        logoutBtn.classList.add('hidden');
+        // Mitarbeiterliste und Formular ausblenden
+        mitarbeiterListeDiv.classList.add('hidden');
+        dataForm.classList.add('hidden');
+        // Markierung zurücksetzen
+        selectedMitarbeiterId = null;
+        Array.from(mitarbeiterUl.children).forEach(li => li.classList.remove('selected'));
+      }
+    });
+
+    // Login
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = loginForm.email.value;
+      const password = loginForm.password.value;
+      try {
+        startLoading('Login...');
+        await signInWithEmailAndPassword(auth, email, password);
+        stopLoading();
+      } catch (err) {
+        stopLoading();
+        showStatusOnce('Login fehlgeschlagen: ' + err.message);
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      signOut(auth);
+    });
+
+    // Mitarbeiter-Liste laden
+    async function loadMitarbeiterListe() {
+      startLoading('Lade Mitarbeiter...');
+      mitarbeiterUl.innerHTML = '';
+      mitarbeiterDocs = [];
+      try {
+        const q = query(collection(db, 'users'));
+        const snap = await getDocs(q);
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          if (ALLOWED_ROLES.includes(d.role)) {
+            const fullName = d.fullName || d.FullName || d.name || '';
+            mitarbeiterDocs.push({ id: docSnap.id, ...d, _displayName: fullName });
+          }
+        });
+        if (mitarbeiterDocs.length === 0) {
+          mitarbeiterUl.innerHTML = '<li>Keine passenden Mitarbeiter gefunden.</li>';
+        } else {
+          mitarbeiterDocs.forEach((m, idx) => {
+            const li = document.createElement('li');
+            li.textContent = m._displayName;
+            li.addEventListener('click', () => selectMitarbeiter(m.id, li));
+            mitarbeiterUl.appendChild(li);
+          });
+        }
+      } catch (err) {
+        showStatusOnce('Fehler beim Laden: ' + err.message);
+      } finally {
+        stopLoading();
+      }
+    }
+
+    // Mitarbeiter auswählen
+    async function selectMitarbeiter(id, liElem) {
+      selectedMitarbeiterId = id;
+      // Markierung in der Liste
+      Array.from(mitarbeiterUl.children).forEach(li => li.classList.remove('selected'));
+      liElem.classList.add('selected');
+      // Daten laden
+      await loadUserData(id);
+      dataForm.classList.remove('hidden');
+    }
+
+    // Supervisoren-Felder dynamisch verwalten
+    function renderSupervisorsFields(supervisorsArr = []) {
+      const container = document.getElementById('supervisors-fields');
+      container.innerHTML = '';
+      supervisorsArr.forEach((val, idx) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = val;
+        input.name = `supervisor_${idx}`;
+        input.style.flex = '1';
+        input.style.marginRight = '6px';
+        input.style.padding = '2px 4px';
+        input.style.fontSize = '0.95em';
+        input.style.minWidth = '220px';
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.textContent = 'Entfernen';
+        delBtn.style.marginLeft = '2px';
+        delBtn.style.padding = '2px 8px';
+        delBtn.onclick = () => {
+          supervisorsArr.splice(idx, 1);
+          renderSupervisorsFields(supervisorsArr);
+        };
+        row.appendChild(input);
+        row.appendChild(delBtn);
+        container.appendChild(row);
+      });
+      // Speichere aktuellen Stand im DOM
+      container.dataset.supervisors = JSON.stringify(supervisorsArr);
+    }
+    // Hinzufügen-Button
+    document.getElementById('add-supervisor-btn').onclick = () => {
+      const container = document.getElementById('supervisors-fields');
+      let arr = [];
+      try { arr = JSON.parse(container.dataset.supervisors || '[]'); } catch {}
+      arr.push('');
+      renderSupervisorsFields(arr);
+    };
+
+    // Daten laden
+    async function loadUserData(uid) {
+      startLoading('Lade Daten...');
+      try {
+        const ref = doc(db, 'users', uid);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const d = snap.data();
+          dataForm.name.value = d.fullName || d.FullName || d.name || '';
+          dataForm.email.value = d.email || '';
+          dataForm.phone.value = d.phone || '';
+          // Öffnungszeiten laden
+          const oh = d.officeHours || {};
+          dataForm.office_monday_open.value = oh.monday?.open || '';
+          dataForm.office_monday_close.value = oh.monday?.close || '';
+          dataForm.office_tuesday_open.value = oh.tuesday?.open || '';
+          dataForm.office_tuesday_close.value = oh.tuesday?.close || '';
+          dataForm.office_wednesday_open.value = oh.wednesday?.open || '';
+          dataForm.office_wednesday_close.value = oh.wednesday?.close || '';
+          dataForm.office_thursday_open.value = oh.thursday?.open || '';
+          dataForm.office_thursday_close.value = oh.thursday?.close || '';
+          dataForm.office_friday_open.value = oh.friday?.open || '';
+          dataForm.office_friday_close.value = oh.friday?.close || '';
+          const vac = d.vacation || {};
+          dataForm.on_vacation.checked = !!(vac.from || vac.to);
+          // Urlaubsdaten als Timestamp -> Input (YYYY-MM-DD)
+          if (vac.from && vac.from.seconds) {
+            const date = new Date(vac.from.seconds * 1000);
+            dataForm.vacation_from.value = date.toISOString().slice(0, 10);
+          } else if (typeof vac.from === 'string') {
+            if (vac.from.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              dataForm.vacation_from.value = vac.from;
+            } else {
+              dataForm.vacation_from.value = '';
+            }
+          } else {
+            dataForm.vacation_from.value = '';
+          }
+          if (vac.to && vac.to.seconds) {
+            const date = new Date(vac.to.seconds * 1000);
+            dataForm.vacation_to.value = date.toISOString().slice(0, 10);
+          } else if (typeof vac.to === 'string') {
+            if (vac.to.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              dataForm.vacation_to.value = vac.to;
+            } else {
+              dataForm.vacation_to.value = '';
+            }
+          } else {
+            dataForm.vacation_to.value = '';
+          }
+          // Supervisoren laden (nur für Supervisor-Rolle)
+          const supervisorsLabel = document.querySelector('label:has(#supervisors-fields)');
+          if (d.role === 'Supervisor') {
+            supervisorsLabel.style.display = 'block';
+            renderSupervisorsFields(Array.isArray(d.supervisors) ? d.supervisors : []);
+          } else {
+            supervisorsLabel.style.display = 'none';
+            renderSupervisorsFields([]);
+          }
+        } else {
+          dataForm.reset();
+          renderSupervisorsFields([]);
+        }
+        document.getElementById('vacation_from_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
+        document.getElementById('vacation_to_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
+      } catch (err) {
+        showStatusOnce('Fehler beim Laden: ' + err.message);
+      } finally {
+        stopLoading();
+      }
+    }
+
+    // Daten speichern
+    dataForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selectedMitarbeiterId) return;
+      const ref = doc(db, 'users', selectedMitarbeiterId);
+      const data = {
+        fullName: dataForm.name.value,
+        email: dataForm.email.value,
+        phone: dataForm.phone.value,
+        // Öffnungszeiten speichern
+        officeHours: {
+          monday: { open: dataForm.office_monday_open.value, close: dataForm.office_monday_close.value },
+          tuesday: { open: dataForm.office_tuesday_open.value, close: dataForm.office_tuesday_close.value },
+          wednesday: { open: dataForm.office_wednesday_open.value, close: dataForm.office_wednesday_close.value },
+          thursday: { open: dataForm.office_thursday_open.value, close: dataForm.office_thursday_close.value },
+          friday: { open: dataForm.office_friday_open.value, close: dataForm.office_friday_close.value }
+        }
+      };
+      // Supervisoren speichern (nur für Supervisor-Rolle)
+      const supervisorsLabel = document.querySelector('label:has(#supervisors-fields)');
+      if (supervisorsLabel.style.display !== 'none') {
+        const supervisorsContainer = document.getElementById('supervisors-fields');
+        let supervisorsArr = [];
+        try {
+          supervisorsArr = Array.from(supervisorsContainer.querySelectorAll('input[type="text"]')).map(inp => inp.value.trim()).filter(Boolean);
+        } catch {}
+        if (supervisorsArr.length > 0) data.supervisors = supervisorsArr;
+        else data.supervisors = [];
+      }
+      if (dataForm.on_vacation.checked) {
+        const from = dataForm.vacation_from.value;
+        const to = dataForm.vacation_to.value;
+        if (from || to) {
+          data.vacation = {};
+          if (from) {
+            // Datum als lokales 12:00:00 speichern
+            const [y, m, d] = from.split('-');
+            const localFrom = new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0, 0);
+            data.vacation.from = Timestamp.fromDate(localFrom);
+          }
+          if (to) {
+            const [y, m, d] = to.split('-');
+            const localTo = new Date(Number(y), Number(m) - 1, Number(d), 12, 0, 0, 0);
+            data.vacation.to = Timestamp.fromDate(localTo);
+          }
+        }
+      } else {
+        data.vacation = null;
+      }
+      startLoading('Speichere...');
+      try {
+        await setDoc(ref, data, { merge: true });
+        showStatusOnce('Gespeichert!', 900);
+        await loadMitarbeiterListe();
+        dataForm.classList.add('hidden');
+        selectedMitarbeiterId = null;
+      } catch (err) {
+        showStatusOnce('Fehler beim Speichern: ' + err.message);
+      } finally {
+        stopLoading();
+      }
+    });
+
+    // Abbrechen-Button
+    cancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      dataForm.classList.add('hidden');
+      selectedMitarbeiterId = null;
+      // Markierung in der Liste entfernen
+      Array.from(mitarbeiterUl.children).forEach(li => li.classList.remove('selected'));
+    });
+
+    // Urlaub-Feld ein-/ausblenden
+    dataForm.on_vacation.addEventListener('change', () => {
+      document.getElementById('vacation_from_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
+      document.getElementById('vacation_to_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
+    });
+    // Initialfeld-Anzeige nach Laden
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('vacation_from_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
+      document.getElementById('vacation_to_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
+    });
+  </script>
+</head>
+<body>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/SAE_Logo_Black_1500x1500px.png" alt="SAE Logo" class="sae-logo">
+  <div id="status-overlay">
+    <div class="status-box" id="status-box"></div>
+  </div>
+  <button id="logout-btn" class="logout-btn hidden">Logout</button>
+  <h1>Mission Control</h1>
+  <div id="welcome-message" style="text-align: center; margin-top: 10px; color: #666; font-size: 1.1em; display: none;"></div>
+  <form id="login-form">
+    <label>E-Mail:
+      <input type="email" name="email" required />
+    </label>
+    <label>Passwort:
+      <input type="password" name="password" required />
+    </label>
+    <button type="submit">Login</button>
+  </form>
+  <div class="main-flex">
+    <div id="mitarbeiter-liste" class="mitarbeiter-liste hidden">
+      <strong>Mitarbeiter:</strong>
+      <ul id="mitarbeiter-ul"></ul>
+    </div>
+    <form id="data-form" class="panel-form hidden">
+      <label>Name:
+        <input type="text" name="name" required />
+      </label>
+      <label>E-Mail:
+        <input type="email" name="email" required />
+      </label>
+      <label>Telefon:
+        <input type="text" name="phone" />
+      </label>
+      <label>Öffnungszeiten Büro:
+        <div id="office-hours-fields" style="display: flex; flex-direction: column; gap: 6px;">
+          <div><label>Montag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_monday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_monday_close" placeholder="HH:MM" style="width:85px;" /></div>
+          <div><label>Dienstag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_tuesday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_tuesday_close" placeholder="HH:MM" style="width:85px;" /></div>
+          <div><label>Mittwoch:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_wednesday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_wednesday_close" placeholder="HH:MM" style="width:85px;" /></div>
+          <div><label>Donnerstag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_thursday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_thursday_close" placeholder="HH:MM" style="width:85px;" /></div>
+          <div><label>Freitag:</label> <span style="font-weight:normal;">von</span> <input type="text" name="office_friday_open" placeholder="HH:MM" style="width:85px;" /> <span style="font-weight:normal;">bis</span> <input type="text" name="office_friday_close" placeholder="HH:MM" style="width:85px;" /></div>
+        </div>
+      </label>
+      <label>Supervisoren:
+        <div id="supervisors-fields" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
+        <button type="button" id="add-supervisor-btn" style="margin-top:4px; width:auto; padding: 6px 12px; font-size: 0.9em;">+ Hinzufügen</button>
+      </label>
+      <label class="inline-checkbox-label">
+        <input type="checkbox" name="on_vacation" /> Im Urlaub
+      </label>
+      <label style="display:none;" id="vacation_from_label">Urlaub von:
+        <input type="date" name="vacation_from" />
+      </label>
+      <label style="display:none;" id="vacation_to_label">Urlaub bis:
+        <input type="date" name="vacation_to" />
+      </label>
+      <div class="form-actions">
+        <button type="submit">Speichern</button>
+        <button id="cancel-btn">Abbrechen</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html> 
