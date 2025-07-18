@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Veranstaltungen | Mission Control</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; margin: 0; color: #333; }
+    h1 { text-align: center; margin-top: 40px; color: #2c3e50; font-weight: 600; font-size: 2.2em; }
+    .main-flex { display: flex; flex-direction: column; align-items: center; max-width: 700px; margin: 40px auto 0 auto; padding: 0 20px; }
+    .event-list { width: 100%; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 30px; padding: 8px 28px; }
+    .event-item { border-bottom: 1px solid #f0f0f0; padding: 18px 0 38px 0; position: relative; }
+    .event-item:last-child { border-bottom: none; }
+    .event-title { font-weight: 600; font-size: 1.1em; color: #007bff; }
+    .event-date { color: #555; font-size: 0.98em; margin-bottom: 4px; }
+    .event-desc { color: #444; font-size: 1em; margin-top: 2px; }
+    .event-form { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 24px 28px; width: 100%; margin-bottom: 30px; }
+    .event-form label { display: block; margin-top: 12px; font-weight: 600; color: #333; font-size: 0.97em; }
+    .event-form input, .event-form textarea { width: 100%; padding: 10px 14px; margin-top: 6px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+    .event-form textarea { resize: vertical; min-height: 60px; }
+    .event-form button { margin-top: 18px; width: 100%; padding: 12px 0; font-size: 1.1em; font-weight: 600; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease; }
+    .event-form button:hover { background: #0056b3; }
+    .logout-btn { position: fixed; top: 12px; right: 12px; padding: 8px 16px; font-size: 0.95em; font-weight: 600; background: #6c757d; border: none; border-radius: 8px; color: white; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; width: auto; display: inline-block; transition: background-color 0.2s ease; }
+    .logout-btn:hover { background: #545b62; }
+    .sae-logo { position: fixed; top: 20px; left: 20px; z-index: 1000; width: 120px; height: auto; }
+    .back-btn { position: fixed; top: 20px; left: 160px; z-index: 1100; background: #fff; color: #007bff; border: 1.5px solid #e1e5e9; border-radius: 8px; padding: 10px 18px; font-size: 1em; font-weight: 600; text-decoration: none; box-shadow: 0 2px 8px rgba(0,0,0,0.07); transition: background 0.2s, color 0.2s, box-shadow 0.2s; display: inline-block; }
+    .back-btn:hover { background: #f0f6ff; color: #0056b3; box-shadow: 0 4px 16px rgba(0,123,255,0.10); }
+    #status-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); z-index: 2000; justify-content: center; align-items: center; }
+    #status-overlay .status-box { background: #fff; border: 1px solid #bbb; border-radius: 8px; box-shadow: 0 2px 16px #0002; padding: 28px 36px; font-size: 1.2em; color: #333; min-width: 180px; text-align: center; }
+    .datetime-row {
+      display: flex;
+      flex-direction: row;
+      gap: 24px;
+      align-items: center;
+      margin-top: 12px;
+      margin-bottom: 0;
+    }
+    @media (max-width: 700px) {
+      .datetime-row { flex-direction: column; gap: 0; align-items: flex-start; }
+      .datetime-row label { margin-bottom: 0; }
+    }
+    .show-form-btn {
+      margin-bottom: 18px;
+      padding: 12px 24px;
+      font-size: 1.08em;
+      font-weight: 600;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      transition: background 0.2s;
+      display: inline-block;
+    }
+    .show-form-btn:hover {
+      background: #0056b3;
+    }
+    .event-form.hidden { display: none; }
+    .event-actions button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 3px 9px;
+      font-size: 0.85em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+      margin-bottom: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .event-actions button:hover {
+      background: #0056b3;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(0,123,255,0.10);
+    }
+    .event-actions {
+      display: flex;
+      justify-content: flex-start;
+      gap: 14px;
+      margin-top: 32px;
+      margin-bottom: 0;
+      align-items: center;
+      width: 100%;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, addDoc, Timestamp, query, orderBy, doc, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnO3ryGISkTaGI7pjszsKesj1y8QBQrCo",
+      authDomain: "sae-wien-mobile.firebaseapp.com",
+      projectId: "sae-wien-mobile",
+      storageBucket: "sae-wien-mobile.firebasestorage.app",
+      messagingSenderId: "213331216851",
+      appId: "1:213331216851:web:c6879a150f531d17b90726"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const logoutBtn = document.getElementById('logout-btn');
+    const statusOverlay = document.getElementById('status-overlay');
+    const statusBox = document.getElementById('status-box');
+    let loadingCount = 0;
+    let lastLoadingMsg = '';
+    function startLoading(msg) {
+      loadingCount++;
+      lastLoadingMsg = msg || 'Lädt...';
+      statusBox.textContent = lastLoadingMsg;
+      statusOverlay.style.display = 'flex';
+    }
+    function stopLoading() {
+      loadingCount = Math.max(0, loadingCount - 1);
+      if (loadingCount === 0) {
+        statusOverlay.style.display = 'none';
+        statusBox.textContent = '';
+      } else {
+        statusBox.textContent = lastLoadingMsg;
+      }
+    }
+    function showStatusOnce(msg, ms = 2000) {
+      statusBox.textContent = msg;
+      statusOverlay.style.display = 'flex';
+      setTimeout(() => {
+        if (loadingCount === 0) {
+          statusOverlay.style.display = 'none';
+          statusBox.textContent = '';
+        }
+      }, ms);
+    }
+
+    // Initial: Ladeanzeige anzeigen
+    document.getElementById('event-list').innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Lade Veranstaltungen...</div>';
+
+    onAuthStateChanged(auth, async user => {
+      if (user) {
+        // Admin-Check wie bei Mitarbeiterseite
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists() || userSnap.data().role !== 'admin') {
+          // Nicht admin: Logout und zurück zu index.html
+          await signOut(auth);
+          window.location.href = 'index.html';
+          return;
+        }
+        logoutBtn.classList.remove('hidden');
+        // Events erst jetzt laden!
+        loadEvents();
+      } else {
+        window.location.href = 'index.html';
+      }
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      signOut(auth);
+    });
+
+    let editEventId = null;
+    async function loadEvents() {
+      startLoading('Lade Veranstaltungen...');
+      const list = document.getElementById('event-list');
+      list.innerHTML = '';
+      try {
+        const q = query(collection(db, 'events'), orderBy('date', 'asc'));
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          list.innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Es gibt aktuell keine Veranstaltungen.<br>Nutze den Button oben, um eine neue Veranstaltung zu erstellen.</div>';
+        } else {
+          snap.forEach(docSnap => {
+            const d = docSnap.data();
+            const div = document.createElement('div');
+            div.className = 'event-item';
+            let timeStr = '';
+            if (d.time_from && d.time_to) {
+              timeStr = `<span style='color:#007bff;'>${d.time_from} - ${d.time_to} Uhr</span>`;
+            } else if (d.time_from) {
+              timeStr = `<span style='color:#007bff;'>ab ${d.time_from} Uhr</span>`;
+            } else if (d.time_to) {
+              timeStr = `<span style='color:#007bff;'>bis ${d.time_to} Uhr</span>`;
+            }
+            div.innerHTML = `<div class="event-title">${d.title || ''}</div>
+              <div class="event-date">${d.date ? (new Date(d.date.seconds*1000)).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
+              <div class="event-desc">${d.description || ''}</div>
+              <div class="event-actions">
+                <button class='edit-btn' data-id='${docSnap.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
+                <button class='delete-btn' data-id='${docSnap.id}' title='Löschen'>❌ Löschen</button>
+              </div>`;
+            list.appendChild(div);
+          });
+          // Event-Listener für Buttons
+          list.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = btn.dataset.id;
+              if (confirm('Möchtest du diese Veranstaltung wirklich löschen?')) {
+                startLoading('Lösche Veranstaltung...');
+                try {
+                  await deleteDoc(doc(db, 'events', id));
+                  showStatusOnce('Veranstaltung gelöscht!', 1200);
+                  loadEvents();
+                } catch (err) {
+                  showStatusOnce('Fehler beim Löschen: ' + err.message);
+                } finally {
+                  stopLoading();
+                }
+              }
+            });
+          });
+          list.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              e.preventDefault();
+              const id = btn.dataset.id;
+              const docRef = doc(db, 'events', id);
+              const snap = await getDoc(docRef);
+              if (snap.exists()) {
+                const d = snap.data();
+                const eventForm = document.getElementById('event-form');
+                eventForm.title.value = d.title || '';
+                eventForm.date.value = d.date && d.date.seconds ? new Date(d.date.seconds*1000).toISOString().slice(0,10) : '';
+                eventForm.time_from.value = d.time_from || '';
+                eventForm.time_to.value = d.time_to || '';
+                eventForm.description.value = d.description || '';
+                editEventId = id;
+                showForm('edit');
+              }
+            });
+          });
+        }
+      } catch (err) {
+        if (err && err.code && (err.code === 'permission-denied' || err.code === 'unavailable')) {
+          list.innerHTML = '<div style="color:#c00; text-align:center; padding:32px 0; font-size:1.08em;">Kein Zugriff auf Veranstaltungen.<br>Bitte prüfe die Firestore Security Rules für die Collection <b>events</b>!</div>';
+        } else {
+          showStatusOnce('Fehler beim Laden: ' + err.message);
+        }
+      } finally {
+        stopLoading();
+      }
+    }
+
+    document.getElementById('event-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = e.target.title.value.trim();
+      const date = e.target.date.value;
+      const time_from = e.target.time_from.value;
+      const time_to = e.target.time_to.value;
+      const description = e.target.description.value.trim();
+      if (!title || !date || !time_from || !time_to) {
+        showStatusOnce('Bitte Titel, Datum und Uhrzeiten angeben!');
+        return;
+      }
+      startLoading(editEventId ? 'Speichere Änderungen...' : 'Speichere Veranstaltung...');
+      try {
+        if (editEventId) {
+          // Update bestehendes Event
+          await updateDoc(doc(db, 'events', editEventId), {
+            title,
+            date: Timestamp.fromDate(new Date(date)),
+            time_from,
+            time_to,
+            description
+          });
+          showStatusOnce('Veranstaltung aktualisiert!', 1200);
+        } else {
+          // Neues Event
+          await addDoc(collection(db, 'events'), {
+            title,
+            date: Timestamp.fromDate(new Date(date)),
+            time_from,
+            time_to,
+            description
+          });
+          showStatusOnce('Veranstaltung gespeichert!', 1200);
+        }
+        e.target.reset();
+        editEventId = null;
+        hideForm();
+        loadEvents();
+      } catch (err) {
+        if (err && err.code && (err.code === 'permission-denied' || err.code === 'unavailable')) {
+          showStatusOnce('Kein Zugriff: Bitte prüfe die Firestore Security Rules für die Collection events!');
+        } else {
+          showStatusOnce('Fehler beim Speichern: ' + err.message);
+        }
+      } finally {
+        stopLoading();
+      }
+    });
+
+    // Formular hinter Button verstecken/anzeigen
+    const showFormBtn = document.getElementById('show-form-btn');
+    const eventForm = document.getElementById('event-form');
+    const formModeLabel = document.getElementById('form-mode-label');
+    const cancelBtn = document.getElementById('cancel-btn');
+
+    // Button-Text dynamisch anpassen
+    function setFormMode(mode) {
+      if (mode === 'edit') {
+        formModeLabel.textContent = 'Veranstaltung bearbeiten';
+        formModeLabel.style.display = 'block';
+        document.getElementById('save-btn').textContent = 'Speichern';
+      } else {
+        formModeLabel.textContent = '';
+        formModeLabel.style.display = 'none';
+        document.getElementById('save-btn').textContent = 'Veranstaltung erstellen';
+      }
+    }
+
+    function showForm(mode) {
+      eventForm.classList.remove('hidden');
+      showFormBtn.style.display = 'none';
+      setFormMode(mode);
+      eventForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function hideForm() {
+      eventForm.classList.add('hidden');
+      showFormBtn.style.display = 'inline-block';
+      eventForm.reset();
+      editEventId = null;
+      setFormMode();
+    }
+
+    showFormBtn.addEventListener('click', () => {
+      showForm('create');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      hideForm();
+    });
+  </script>
+</head>
+<body>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/SAE_Logo_Black_1500x1500px.png" alt="SAE Logo" class="sae-logo">
+  <a href="index.html" class="back-btn">← Zurück zum Dashboard</a>
+  <div id="status-overlay">
+    <div class="status-box" id="status-box"></div>
+  </div>
+  <button id="logout-btn" class="logout-btn hidden">Logout</button>
+  <h1>Veranstaltungen</h1>
+  <div class="main-flex">
+    <button id="show-form-btn" class="show-form-btn">Veranstaltung erstellen</button>
+    <form id="event-form" class="event-form hidden">
+      <div id="form-mode-label" style="font-weight:600; color:#007bff; margin-bottom:10px; display:none;"></div>
+      <label>Titel:
+        <input type="text" name="title" required />
+      </label>
+      <div class="datetime-row">
+        <label style="margin-right:18px; min-width:110px;">Datum:
+          <input type="date" name="date" required style="width:130px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
+        </label>
+        <label style="margin-right:12px; min-width:90px;">Uhrzeit von:
+          <input type="time" name="time_from" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
+        </label>
+        <label style="min-width:90px;">Uhrzeit bis:
+          <input type="time" name="time_to" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
+        </label>
+      </div>
+      <label>Beschreibung:
+        <textarea name="description" placeholder="Beschreibung (optional)"></textarea>
+      </label>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button type="submit" id="save-btn">Veranstaltung erstellen</button>
+        <button type="button" id="cancel-btn" style="background:#6c757d; color:white;">Abbrechen</button>
+      </div>
+    </form>
+    <div id="event-list" class="event-list"></div>
+  </div>
+</body>
+</html> 
