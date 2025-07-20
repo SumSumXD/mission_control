@@ -83,6 +83,24 @@
       align-items: center;
       width: 100%;
     }
+    .event-image-wrap {
+      width: 100%;
+      padding: 14px 0 18px 0;
+      overflow: hidden;
+      border-radius: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .event-image {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 16px;
+      object-fit: cover;
+      max-height: 260px;
+      box-shadow: 0 2px 8px #0002;
+    }
   </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
@@ -182,9 +200,12 @@
             } else if (d.time_to) {
               timeStr = `<span style='color:#007bff;'>bis ${d.time_to} Uhr</span>`;
             }
-            div.innerHTML = `<div class="event-title">${d.title || ''}</div>
+            div.innerHTML = `
+              ${d.picture ? `<div class="event-image-wrap"><img src="${d.picture}" alt="Event Bild" class="event-image"></div>` : ''}
+              <div class="event-title">${d.title || ''}</div>
               <div class="event-date">${d.date ? (new Date(d.date.seconds*1000)).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
               <div class="event-desc">${d.description || ''}</div>
+              <div class="event-location" style="color:#555; font-size:0.97em; margin-top:4px;">${d.location ? '📍 ' + d.location : ''}</div>
               <div class="event-actions">
                 <button class='edit-btn' data-id='${docSnap.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
                 <button class='delete-btn' data-id='${docSnap.id}' title='Löschen'>❌ Löschen</button>
@@ -223,6 +244,8 @@
                 eventForm.time_from.value = d.time_from || '';
                 eventForm.time_to.value = d.time_to || '';
                 eventForm.description.value = d.description || '';
+                eventForm.location.value = d.location || '';
+                eventForm.picture.value = d.picture || '';
                 editEventId = id;
                 showForm('edit');
               }
@@ -247,6 +270,8 @@
       const time_from = e.target.time_from.value;
       const time_to = e.target.time_to.value;
       const description = e.target.description.value.trim();
+      const location = e.target.location.value.trim();
+      const picture = e.target.picture.value.trim();
       if (!title || !date || !time_from || !time_to) {
         showStatusOnce('Bitte Titel, Datum und Uhrzeiten angeben!');
         return;
@@ -260,7 +285,9 @@
             date: Timestamp.fromDate(new Date(date)),
             time_from,
             time_to,
-            description
+            description,
+            location,
+            picture
           });
           showStatusOnce('Veranstaltung aktualisiert!', 1200);
         } else {
@@ -270,7 +297,9 @@
             date: Timestamp.fromDate(new Date(date)),
             time_from,
             time_to,
-            description
+            description,
+            location,
+            picture
           });
           showStatusOnce('Veranstaltung gespeichert!', 1200);
         }
@@ -358,6 +387,12 @@
           <input type="time" name="time_to" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
         </label>
       </div>
+      <label>Bildadresse:
+        <input type="url" name="picture" placeholder="https://... (optional)" />
+      </label>
+      <label>Standort:
+        <input type="text" name="location" placeholder="z.B. Raum 101, Online, etc." />
+      </label>
       <label>Beschreibung:
         <textarea name="description" placeholder="Beschreibung (optional)"></textarea>
       </label>
