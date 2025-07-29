@@ -182,85 +182,70 @@
       startLoading('Lade Veranstaltungen...');
       const list = document.getElementById('event-list');
       list.innerHTML = '';
+      let allEvents = [];
+      let ebError = false;
+      // 1. Eventbrite Events laden
+      try {
+        const ebRes = await fetch('https://www.eventbriteapi.com/v3/organizers/50800198483/events/?expand=venue,logo&token=VJXS6EWQVW2C45QJZFQU');
+        if (ebRes.ok) {
+          const ebData = await ebRes.json();
+          if (ebData.events && ebData.events.length > 0) {
+            ebData.events.forEach(ev => {
+              allEvents.push({
+                type: 'eventbrite',
+                id: ev.id,
+                title: ev.name && ev.name.text ? ev.name.text : '',
+                date: ev.start && ev.start.local ? new Date(ev.start.local) : null,
+                dateRaw: ev.start && ev.start.local ? ev.start.local : null,
+                description: ev.description && ev.description.text ? ev.description.text : '',
+                location: ev.venue && ev.venue.name ? ev.venue.name : '',
+                address: ev.venue && ev.venue.address && ev.venue.address.localized_address_display ? ev.venue.address.localized_address_display : '',
+                url: ev.url,
+                image: ev.logo && ev.logo.url ? ev.logo.url : '',
+              });
+            });
+          }
+        } else {
+          ebError = true;
+        }
+      } catch (err) {
+        ebError = true;
+      }
+      // 2. Firestore Events laden
       try {
         const q = query(collection(db, 'events'), orderBy('date', 'asc'));
         const snap = await getDocs(q);
-        if (snap.empty) {
-          list.innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Es gibt aktuell keine Veranstaltungen.<br>Nutze den Button oben, um eine neue Veranstaltung zu erstellen.</div>';
-        } else {
+        if (!snap.empty) {
           snap.forEach(docSnap => {
             const d = docSnap.data();
-            const div = document.createElement('div');
-            div.className = 'event-item';
-            let timeStr = '';
-            if (d.time_from && d.time_to) {
-              timeStr = `<span style='color:#007bff;'>${d.time_from} - ${d.time_to} Uhr</span>`;
-            } else if (d.time_from) {
-              timeStr = `<span style='color:#007bff;'>ab ${d.time_from} Uhr</span>`;
-            } else if (d.time_to) {
-              timeStr = `<span style='color:#007bff;'>bis ${d.time_to} Uhr</span>`;
-            }
-            div.innerHTML = `
-              ${d.picture ? `<div class="event-image-wrap"><img src="${d.picture}" alt="Event Bild" class="event-image"></div>` : ''}
-              <div class="event-title">${d.title || ''}</div>
-              <div class="event-date">${d.date ? (new Date(d.date.seconds*1000)).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
-              <div class="event-desc">${d.description || ''}</div>
-              <div class="event-location" style="color:#555; font-size:0.97em; margin-top:4px;">${d.location ? '📍 ' + d.location : ''}</div>
-              <div class="event-actions">
-                <button class='edit-btn' data-id='${docSnap.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
-                <button class='delete-btn' data-id='${docSnap.id}' title='Löschen'>❌ Löschen</button>
-              </div>`;
-            list.appendChild(div);
-          });
-          // Event-Listener für Buttons
-          list.querySelectorAll('.delete-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-              const id = btn.dataset.id;
-              if (confirm('Möchtest du diese Veranstaltung wirklich löschen?')) {
-                startLoading('Lösche Veranstaltung...');
-                try {
-                  await deleteDoc(doc(db, 'events', id));
-                  showStatusOnce('Veranstaltung gelöscht!', 1200);
-                  loadEvents();
-                } catch (err) {
-                  showStatusOnce('Fehler beim Löschen: ' + err.message);
-                } finally {
-                  stopLoading();
-                }
-              }
-            });
-          });
-          list.querySelectorAll('.edit-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-              e.preventDefault();
-              const id = btn.dataset.id;
-              const docRef = doc(db, 'events', id);
-              const snap = await getDoc(docRef);
-              if (snap.exists()) {
-                const d = snap.data();
-                const eventForm = document.getElementById('event-form');
-                eventForm.title.value = d.title || '';
-                eventForm.date.value = d.date && d.date.seconds ? new Date(d.date.seconds*1000).toISOString().slice(0,10) : '';
-                eventForm.time_from.value = d.time_from || '';
-                eventForm.time_to.value = d.time_to || '';
-                eventForm.description.value = d.description || '';
-                eventForm.location.value = d.location || '';
-                eventForm.picture.value = d.picture || '';
-                editEventId = id;
-                showForm('edit');
-              }
+            allEvents.push({
+              type: 'firestore',
+              id: docSnap.id,
+              title: d.title || '',
+              date: d.date && d.date.seconds ? new Date(d.date.seconds*1000) : null,
+              dateRaw: d.date && d.date.seconds ? d.date.seconds : null,
+              description: d.description || '',
+              location: d.location || '',
+              time_from: d.time_from || '',
+              time_to: d.time_to || '',
+              image: d.picture || '',
             });
           });
         }
       } catch (err) {
         if (err && err.code && (err.code === 'permission-denied' || err.code === 'unavailable')) {
-          list.innerHTML = '<div style="color:#c00; text-align:center; padding:32px 0; font-size:1.08em;">Kein Zugriff auf Veranstaltungen.<br>Bitte prüfe die Firestore Security Rules für die Collection <b>events</b>!</div>';
+          list.innerHTML += '<div style="color:#c00; text-align:center; padding:32px 0; font-size:1.08em;">Kein Zugriff auf Veranstaltungen.<br>Bitte prüfe die Firestore Security Rules für die Collection <b>events</b>!</div>';
+          stopLoading();
+          return;
         } else {
           showStatusOnce('Fehler beim Laden: ' + err.message);
         }
-      } finally {
-        stopLoading();
       }
+      // 3. Kombinieren & sortieren
+      allEvents = allEvents.filter(ev => ev.date).sort((a, b) => a.date - b.date);
+      allEventsCache = allEvents;
+      renderEvents(allEvents);
+      stopLoading();
     }
 
     document.getElementById('event-form').addEventListener('submit', async (e) => {
@@ -371,7 +356,74 @@
   <h1>Veranstaltungen</h1>
   <div class="main-flex">
     <button id="show-form-btn" class="show-form-btn">Veranstaltung erstellen</button>
+    <input id="event-search" type="text" placeholder="Suchen..." style="width:100%;max-width:350px;margin:18px 0 18px 0;padding:10px 14px;font-size:1.05em;border:2px solid #e1e5e9;border-radius:8px;box-sizing:border-box;" />
     <form id="event-form" class="event-form hidden">
+<script>
+  // Suchfunktion für Events
+  let allEventsCache = [];
+  function renderEvents(events) {
+    const list = document.getElementById('event-list');
+    list.innerHTML = '';
+    if (!events || events.length === 0) {
+      list.innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Es gibt aktuell keine Veranstaltungen.</div>';
+      return;
+    }
+    events.forEach(ev => {
+      const div = document.createElement('div');
+      div.className = 'event-item';
+      if (ev.type === 'eventbrite') {
+        div.innerHTML = `
+          ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
+          <div class=\"event-title\">${ev.title}</div>
+          <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}${ev.address ? ' · ' + ev.address : ''}</div>
+          <div class=\"event-desc\">${ev.description}</div>
+          <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
+          <div style=\"margin-top:10px;\"><a href=\"${ev.url}\" target=\"_blank\" style=\"color:#007bff;text-decoration:underline;font-weight:600;\">Event auf Eventbrite ansehen</a></div>
+        `;
+      } else {
+        let timeStr = '';
+        if (ev.time_from && ev.time_to) {
+          timeStr = `<span style='color:#007bff;'>${ev.time_from} - ${ev.time_to} Uhr</span>`;
+        } else if (ev.time_from) {
+          timeStr = `<span style='color:#007bff;'>ab ${ev.time_from} Uhr</span>`;
+        } else if (ev.time_to) {
+          timeStr = `<span style='color:#007bff;'>bis ${ev.time_to} Uhr</span>`;
+        }
+        div.innerHTML = `
+          ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
+          <div class=\"event-title\">${ev.title}</div>
+          <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
+          <div class=\"event-desc\">${ev.description}</div>
+          <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
+          <div class=\"event-actions\">
+            <button class='edit-btn' data-id='${ev.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
+            <button class='delete-btn' data-id='${ev.id}' title='Löschen'>❌ Löschen</button>
+          </div>
+        `;
+      }
+      list.appendChild(div);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('event-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim().toLowerCase();
+        if (!val) {
+          renderEvents(allEventsCache);
+          return;
+        }
+        const filtered = allEventsCache.filter(ev =>
+          (ev.title && ev.title.toLowerCase().includes(val)) ||
+          (ev.description && ev.description.toLowerCase().includes(val)) ||
+          (ev.location && ev.location.toLowerCase().includes(val)) ||
+          (ev.address && ev.address.toLowerCase().includes(val))
+        );
+        renderEvents(filtered);
+      });
+    }
+  });
+</script>
       <div id="form-mode-label" style="font-weight:600; color:#007bff; margin-bottom:10px; display:none;"></div>
       <label>Titel:
         <input type="text" name="title" required />

@@ -85,7 +85,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getFirestore, doc, getDoc, setDoc, collection, getDocs, Timestamp, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-    import { getAuth, createUserWithEmailAndPassword, deleteUser } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAnO3ryGISkTaGI7pjszsKesj1y8QBQrCo",
@@ -97,6 +97,7 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
     const benutzerUl = document.getElementById('benutzer-ul');
     const benutzerForm = document.getElementById('benutzer-form');
@@ -222,41 +223,48 @@
           await setDoc(ref, data, { merge: true });
           showStatusOnce('Gespeichert!', 900);
         } else {
-          // Neuen Auth-User anlegen
-          const auth = getAuth();
           const email = data.email;
           if (!email) {
             showStatusOnce('Bitte eine E-Mail angeben!');
             stopLoading();
             return;
           }
-          // Zufälliges Passwort generieren
-          function randomPassword(length = 12) {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
-            let pass = '';
-            for (let i = 0; i < length; ++i) pass += chars.charAt(Math.floor(Math.random() * chars.length));
-            return pass;
+          const password = data.studentNumber;
+          if (!password) {
+            showStatusOnce('Bitte Studierendennummer angeben!');
+            stopLoading();
+            return;
           }
-          const password = randomPassword();
           let userCredential;
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
           } catch (err) {
+            console.error('Fehler beim Anlegen des Auth-Users:', err);
             showStatusOnce('Fehler beim Anlegen des Auth-Users: ' + err.message);
             stopLoading();
             return;
           }
-          // User-Dokument mit UID speichern
-          await setDoc(doc(db, 'users', userCredential.user.uid), data, { merge: true });
-          showStatusOnce('Benutzer wurde erstellt! Das Passwort wird angezeigt...', 1800);
-          setTimeout(() => {
-            window.prompt('Benutzer wurde erstellt! Das Passwort lautet (bitte kopieren):', password);
-          }, 1800);
+          try {
+            await setDoc(doc(db, 'users', userCredential.user.uid), { ...data, createdAt: Timestamp.now() }, { merge: true });
+          } catch (err) {
+            console.error('Fehler beim Speichern des User-Dokuments:', err);
+            showStatusOnce('Fehler beim Speichern des User-Dokuments: ' + err.message);
+            stopLoading();
+            return;
+          }
+          try {
+            await sendPasswordResetEmail(auth, email);
+            showStatusOnce('Benutzer wurde erstellt! Passwort-Reset-Mail wurde gesendet.', 1800);
+          } catch (err) {
+            console.error('Fehler beim Senden der Passwort-Reset-Mail:', err);
+            showStatusOnce('Benutzer erstellt, aber Fehler beim Senden der Passwort-Reset-Mail: ' + err.message);
+          }
         }
         await loadBenutzerListe();
         benutzerForm.classList.add('hidden');
         selectedBenutzerId = null;
       } catch (err) {
+        console.error('Fehler beim Speichern:', err);
         showStatusOnce('Fehler beim Speichern: ' + err.message);
       } finally {
         stopLoading();
@@ -353,7 +361,7 @@
         </select>
       </label>
       <label>Geburtsdatum:
-        <input type="text" name="dateOfBirth" placeholder="Geburtsdatum (optional)" />
+        <input type="date" name="dateOfBirth" placeholder="Geburtsdatum (optional)" />
       </label>
       <label>E-Mail:
         <input type="email" name="email" />
@@ -368,7 +376,7 @@
           <option value="admin">admin</option>
         </select>
       </label>
-      <label>Matrikelnummer:
+      <label>Studierendennummer:
         <input type="text" name="studentNumber" />
       </label>
       <label>Profilbild-URL:
