@@ -94,6 +94,7 @@
     const logoutBtn = document.getElementById('logout-btn');
     const statusOverlay = document.getElementById('status-overlay');
     const statusBox = document.getElementById('status-box');
+    const mitarbeiterUl = document.getElementById('mitarbeiter-ul');
     let loadingCount = 0;
     let lastLoadingMsg = '';
     function startLoading(msg) {
@@ -122,7 +123,6 @@
       }, ms);
     }
     const mitarbeiterListeDiv = document.getElementById('mitarbeiter-liste');
-    const mitarbeiterUl = document.getElementById('mitarbeiter-ul');
     let mitarbeiterDocs = [];
     let selectedMitarbeiterId = null;
 
@@ -256,9 +256,7 @@
     async function loadUserData(uid) {
       if (!ensureLoggedIn()) return;
       startLoading('Lade Daten...');
-      try {
-        const ref = doc(db, 'users', uid);
-        const snap = await getDoc(ref);
+      getDoc(doc(db, 'users', uid)).then(snap => {
         if (snap.exists()) {
           const d = snap.data();
           dataForm.name.value = d.fullName || d.FullName || d.name || '';
@@ -313,22 +311,27 @@
             supervisorsLabel.style.display = 'none';
             renderSupervisorsFields([]);
           }
+          dataForm.profilePictureURL.value = d.profilePictureURL || '';
+          document.getElementById('profile-pic-preview').src = d.profilePictureURL || '';
         } else {
           dataForm.reset();
-          renderSupervisorsFields([]);
+          document.getElementById('profile-pic-preview').src = '';
         }
         document.getElementById('vacation_from_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
         document.getElementById('vacation_to_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
-      } catch (err) {
+      }).catch(err => {
         showStatusOnce('Fehler beim Laden: ' + err.message);
-      } finally {
+      }).finally(() => {
         stopLoading();
-      }
+      });
     }
+
+    dataForm.profilePictureURL.addEventListener('input', function() {
+      document.getElementById('profile-pic-preview').src = this.value;
+    });
 
     // Daten speichern
     dataForm.addEventListener('submit', async (e) => {
-      if (!ensureLoggedIn()) return;
       e.preventDefault();
       if (!selectedMitarbeiterId) return;
       const ref = doc(db, 'users', selectedMitarbeiterId);
@@ -344,7 +347,8 @@
           friday: { open: dataForm.office_friday_open.value, close: dataForm.office_friday_close.value },
           saturday: { open: dataForm.office_saturday_open.value, close: dataForm.office_saturday_close.value },
           sunday: { open: dataForm.office_sunday_open.value, close: dataForm.office_sunday_close.value }
-        }
+        },
+        profilePictureURL: dataForm.profilePictureURL.value,
       };
       const supervisorsLabel = document.querySelector('label:has(#supervisors-fields)');
       if (supervisorsLabel.style.display !== 'none') {
@@ -404,6 +408,18 @@
       document.getElementById('vacation_from_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
       document.getElementById('vacation_to_label').style.display = dataForm.on_vacation.checked ? 'block' : 'none';
     });
+    // Filterfunktion für die Suchleiste
+    const mitarbeiterSearchInput = document.getElementById('mitarbeiter-search');
+    mitarbeiterSearchInput.addEventListener('input', () => {
+      const val = mitarbeiterSearchInput.value.trim().toLowerCase();
+      Array.from(mitarbeiterUl.children).forEach(li => {
+        if (!val || li.textContent.toLowerCase().includes(val)) {
+          li.style.display = '';
+        } else {
+          li.style.display = 'none';
+        }
+      });
+    });
   </script>
 </head>
 <body>
@@ -416,7 +432,7 @@
   <h1>Mitarbeiterverzeichnis</h1>
   <div class="main-flex">
     <div id="mitarbeiter-liste" class="mitarbeiter-liste hidden">
-      <strong>Mitarbeiter:</strong>
+      <input id="mitarbeiter-search" type="text" placeholder="Suchen..." style="width:100%;margin-bottom:16px;padding:10px 14px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1em;box-sizing:border-box;">
       <ul id="mitarbeiter-ul"></ul>
     </div>
     <form id="data-form" class="panel-form hidden">
@@ -444,6 +460,7 @@
         <div id="supervisors-fields" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
         <button type="button" id="add-supervisor-btn" style="margin-top:4px; width:auto; padding: 6px 12px; font-size: 0.9em;">+ Hinzufügen</button>
       </label>
+      <div style="margin-top:18px; font-weight:600; color:#2c3e50; font-size:1.08em;">Urlaub:</div>
       <label class="inline-checkbox-label">
         <input type="checkbox" name="on_vacation" /> Im Urlaub
       </label>
@@ -453,6 +470,12 @@
       <label style="display:none;" id="vacation_to_label">Urlaub bis:
         <input type="date" name="vacation_to" />
       </label>
+      <label>Profilbild-URL:
+        <span style="display:flex;align-items:center;gap:16px;">
+          <input type="url" name="profilePictureURL" style="flex:1;min-width:0;" />
+          <img id="profile-pic-preview" class="profile-pic-preview" src="" alt="Profilbild Vorschau" style="width:80px;height:80px;object-fit:cover;border-radius:8px;margin-bottom:0;border:1px solid #eee;" />
+        </span>
+      </label>
       <div class="form-actions">
         <button type="submit">Speichern</button>
         <button id="cancel-btn">Abbrechen</button>
@@ -460,4 +483,4 @@
     </form>
   </div>
 </body>
-</html> 
+</html>

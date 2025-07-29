@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Benutzerverzeichnis</title>
+  <style>
+    .add-user-btn {
+      position: fixed;
+      top: 24px;
+      right: 32px;
+      background: #fff;
+      color: #007bff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      padding: 10px 18px;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 1.05em;
+      z-index: 1000;
+      border: 1px solid #e1e5e9;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .add-user-btn:hover {
+      background: #f0f6ff;
+    }
+    .sae-logo {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      width: 120px;
+      height: auto;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; margin: 0; color: #333; }
+    h1 { text-align: center; margin-top: 40px; color: #2c3e50; font-weight: 600; font-size: 2.2em; }
+    .main-flex { display: flex; justify-content: center; align-items: flex-start; gap: 40px; max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; }
+    .benutzer-liste { background: #ffffff; border: none; margin-bottom: 20px; padding: 20px; min-width: 280px; max-width: 320px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .benutzer-liste ul { list-style: none; padding: 0; margin: 0; }
+    .benutzer-liste li { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background-color 0.2s ease; border-radius: 6px; margin-bottom: 4px; }
+    .benutzer-liste li:hover { background: #f8f9fa; }
+    .benutzer-liste li:last-child { border-bottom: none; }
+    .benutzer-liste li.selected { background: #007bff; color: white; }
+    .panel-form { background: #ffffff; border: none; padding: 30px; min-width: 320px; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 12px; }
+    .panel-form.hidden { display: none; }
+    form label { display: block; margin-top: 10px; font-weight: 600; color: #333; font-size: 0.95em; }
+    form input, form select { width: 100%; padding: 12px 16px; margin-top: 8px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 1em; transition: border-color 0.2s ease; box-sizing: border-box; }
+    form input:focus, form select:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+    form button { margin-top: 20px; width: 100%; padding: 14px 20px; font-size: 1.1em; font-weight: 600; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s ease; box-sizing: border-box; }
+    form button:hover { background: #0056b3; }
+    form button:active { transform: translateY(1px); }
+    .form-actions { display: flex; gap: 12px; margin-top: 20px; }
+    .form-actions button:last-child { background: #6c757d; }
+    .form-actions button:last-child:hover { background: #545b62; }
+    .hidden { display: none !important; }
+    .profile-pic-preview { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee; }
+
+    /* Status Overlay */
+    #status-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255,255,255,0.7);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+    .status-box {
+      background: #fff;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      box-shadow: 0 2px 16px #0002;
+      padding: 28px 36px;
+      font-size: 1.2em;
+      color: #333;
+      min-width: 180px;
+      text-align: center;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, Timestamp, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    import { getAuth, createUserWithEmailAndPassword, deleteUser } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnO3ryGISkTaGI7pjszsKesj1y8QBQrCo",
+      authDomain: "sae-wien-mobile.firebaseapp.com",
+      projectId: "sae-wien-mobile",
+      storageBucket: "sae-wien-mobile.firebasestorage.app",
+      messagingSenderId: "213331216851",
+      appId: "1:213331216851:web:c6879a150f531d17b90726"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const benutzerUl = document.getElementById('benutzer-ul');
+    const benutzerForm = document.getElementById('benutzer-form');
+    let benutzerDocs = [];
+    let selectedBenutzerId = null;
+
+    async function loadBenutzerListe() {
+      benutzerUl.innerHTML = '';
+      benutzerDocs = [];
+      const snap = await getDocs(collection(db, 'users'));
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        const firstName = d.firstName || '';
+        const lastName = d.lastName || '';
+        if (firstName && lastName) {
+          benutzerDocs.push({ id: docSnap.id, ...d, _displayName: `${firstName} ${lastName}`.trim() });
+        }
+      });
+      if (benutzerDocs.length === 0) {
+        benutzerUl.innerHTML = '<li>Keine Benutzer gefunden.</li>';
+      } else {
+        benutzerDocs.forEach((b, idx) => {
+          const li = document.createElement('li');
+          li.textContent = b._displayName;
+          li.addEventListener('click', () => selectBenutzer(b.id, li));
+          benutzerUl.appendChild(li);
+        });
+      }
+    }
+
+    async function selectBenutzer(id, liElem) {
+      selectedBenutzerId = id;
+      Array.from(benutzerUl.children).forEach(li => li.classList.remove('selected'));
+      liElem.classList.add('selected');
+      await loadBenutzerData(id);
+      benutzerForm.classList.remove('hidden');
+    }
+
+    async function loadBenutzerData(uid) {
+      const ref = doc(db, 'users', uid);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        const d = snap.data();
+        benutzerForm.campus.value = d.campus || '';
+        benutzerForm.course.value = d.course || '';
+        benutzerForm.dateOfBirth.value = d.dateOfBirth || '';
+        benutzerForm.email.value = d.email || '';
+        benutzerForm.expiryDate.value = d.expiryDate || '';
+        benutzerForm.firstName.value = d.firstName || '';
+        benutzerForm.lastName.value = d.lastName || '';
+        benutzerForm.profilePictureURL.value = d.profilePictureURL || '';
+        benutzerForm.role.value = d.role || '';
+        benutzerForm.studentNumber.value = d.studentNumber || '';
+        document.getElementById('profile-pic-preview').src = d.profilePictureURL || '';
+      } else {
+        benutzerForm.reset();
+        document.getElementById('profile-pic-preview').src = '';
+      }
+    }
+
+    benutzerForm.profilePictureURL.addEventListener('input', function() {
+      document.getElementById('profile-pic-preview').src = this.value;
+    });
+
+    document.getElementById('add-user-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      selectedBenutzerId = null;
+      benutzerForm.reset();
+      document.getElementById('profile-pic-preview').src = '';
+      Array.from(benutzerUl.children).forEach(li => li.classList.remove('selected'));
+      benutzerForm.classList.remove('hidden');
+    });
+
+    // Status-Overlay Funktionen wie im Mitarbeiterverzeichnis
+    const statusOverlay = document.getElementById('status-overlay');
+    const statusBox = document.getElementById('status-box');
+    let loadingCount = 0;
+    let lastLoadingMsg = '';
+    function startLoading(msg) {
+      loadingCount++;
+      lastLoadingMsg = msg || 'Lädt...';
+      statusBox.textContent = lastLoadingMsg;
+      statusOverlay.style.display = 'flex';
+    }
+    function stopLoading() {
+      loadingCount = Math.max(0, loadingCount - 1);
+      if (loadingCount === 0) {
+        statusOverlay.style.display = 'none';
+        statusBox.textContent = '';
+      } else {
+        statusBox.textContent = lastLoadingMsg;
+      }
+    }
+    function showStatusOnce(msg, ms = 2000) {
+      statusBox.textContent = msg;
+      statusOverlay.style.display = 'flex';
+      setTimeout(() => {
+        if (loadingCount === 0) {
+          statusOverlay.style.display = 'none';
+          statusBox.textContent = '';
+        }
+      }, ms);
+    }
+
+    benutzerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        campus: benutzerForm.campus.value,
+        course: benutzerForm.course.value,
+        dateOfBirth: benutzerForm.dateOfBirth.value,
+        email: benutzerForm.email.value,
+        expiryDate: benutzerForm.expiryDate.value,
+        firstName: benutzerForm.firstName.value,
+        lastName: benutzerForm.lastName.value,
+        profilePictureURL: benutzerForm.profilePictureURL.value,
+        role: benutzerForm.role.value,
+        studentNumber: benutzerForm.studentNumber.value
+      };
+      startLoading('Speichere...');
+      try {
+        if (selectedBenutzerId) {
+          const ref = doc(db, 'users', selectedBenutzerId);
+          await setDoc(ref, data, { merge: true });
+          showStatusOnce('Gespeichert!', 900);
+        } else {
+          // Neuen Auth-User anlegen
+          const auth = getAuth();
+          const email = data.email;
+          if (!email) {
+            showStatusOnce('Bitte eine E-Mail angeben!');
+            stopLoading();
+            return;
+          }
+          // Zufälliges Passwort generieren
+          function randomPassword(length = 12) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+            let pass = '';
+            for (let i = 0; i < length; ++i) pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            return pass;
+          }
+          const password = randomPassword();
+          let userCredential;
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          } catch (err) {
+            showStatusOnce('Fehler beim Anlegen des Auth-Users: ' + err.message);
+            stopLoading();
+            return;
+          }
+          // User-Dokument mit UID speichern
+          await setDoc(doc(db, 'users', userCredential.user.uid), data, { merge: true });
+          showStatusOnce('Benutzer wurde erstellt! Das Passwort wird angezeigt...', 1800);
+          setTimeout(() => {
+            window.prompt('Benutzer wurde erstellt! Das Passwort lautet (bitte kopieren):', password);
+          }, 1800);
+        }
+        await loadBenutzerListe();
+        benutzerForm.classList.add('hidden');
+        selectedBenutzerId = null;
+      } catch (err) {
+        showStatusOnce('Fehler beim Speichern: ' + err.message);
+      } finally {
+        stopLoading();
+      }
+    });
+
+    document.getElementById('benutzer-cancel-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      benutzerForm.classList.add('hidden');
+      selectedBenutzerId = null;
+      Array.from(benutzerUl.children).forEach(li => li.classList.remove('selected'));
+    });
+
+    document.getElementById('benutzer-delete-btn').addEventListener('click', async () => {
+      if (!selectedBenutzerId) return;
+      if (!confirm('Soll dieser Benutzer wirklich gelöscht werden?')) return;
+      await deleteDoc(doc(db, 'users', selectedBenutzerId));
+      // Versuche auch den Auth-User zu löschen
+      try {
+        const auth = getAuth();
+        // Hole das aktuelle User-Objekt aus Auth
+        // Admin SDK ist im Client nicht verfügbar, daher kann nur der aktuell eingeloggte User sich selbst löschen
+        // Wenn der Admin sich selbst löscht, wird er aus Auth entfernt
+        if (auth.currentUser && auth.currentUser.uid === selectedBenutzerId) {
+          await deleteUser(auth.currentUser);
+        }
+        // Für andere User ist ein Löschen aus Auth im Client nicht möglich (nur mit Admin SDK/Cloud Function)
+      } catch (err) {
+        // Fehler ignorieren, da im Client nicht möglich
+      }
+      alert('Benutzer gelöscht!');
+      await loadBenutzerListe();
+      benutzerForm.classList.add('hidden');
+      selectedBenutzerId = null;
+    });
+
+    window.addEventListener('DOMContentLoaded', loadBenutzerListe);
+
+    // Filterfunktion für die Suchleiste
+    const searchInput = document.getElementById('benutzer-search');
+    searchInput.addEventListener('input', () => {
+      const val = searchInput.value.trim().toLowerCase();
+      Array.from(benutzerUl.children).forEach(li => {
+        if (!val || li.textContent.toLowerCase().includes(val)) {
+          li.style.display = '';
+        } else {
+          li.style.display = 'none';
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+  <div id="status-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.7);z-index:2000;justify-content:center;align-items:center;">
+    <div class="status-box" id="status-box" style="background:#fff;border:1px solid #bbb;border-radius:8px;box-shadow:0 2px 16px #0002;padding:28px 36px;font-size:1.2em;color:#333;min-width:180px;text-align:center;"></div>
+  </div>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/SAE_Logo_Black_1500x1500px.png" alt="SAE Logo" class="sae-logo">
+  <a href="index.html" style="position: fixed; top: 24px; left: 160px; background: #fff; color: #007bff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 10px 18px; font-weight: 600; text-decoration: none; font-size: 1.05em; z-index: 1000; border: 1px solid #e1e5e9; transition: background 0.2s;">
+    ← Zurück zum Dashboard
+  </a>
+  <a href="#" id="add-user-btn" style="position: fixed; top: 24px; right: 32px; background: #fff; color: #007bff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 10px 18px; font-weight: 600; text-decoration: none; font-size: 1.05em; z-index: 1000; border: 1px solid #e1e5e9; transition: background 0.2s; display: flex; align-items: center; gap: 8px;">
+    <span style="font-size:1.3em;">👤</span> Benutzer erstellen
+  </a>
+  <h1>Benutzerverzeichnis</h1>
+  <div class="main-flex">
+    <div class="benutzer-liste">
+      <input id="benutzer-search" type="text" placeholder="Suchen..." style="width:100%;margin-bottom:16px;padding:10px 14px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1em;box-sizing:border-box;">
+      <ul id="benutzer-ul"></ul>
+    </div>
+    <form id="benutzer-form" class="panel-form hidden">
+      <label>Vorname:
+        <input type="text" name="firstName" />
+      </label>
+      <label>Nachname:
+        <input type="text" name="lastName" />
+      </label>
+      <label>Campus:
+        <input type="text" name="campus" />
+      </label>
+      <label>Kurs:
+        <select name="course">
+          <option value="">Bitte wählen…</option>
+          <option value="Film">Film</option>
+          <option value="Audio">Audio</option>
+          <option value="Games">Games</option>
+          <option value="Music Business">Music Business</option>
+          <option value="Web and Mobile">Web and Mobile</option>
+          <option value="Voice">Voice</option>
+          <option value="Animation">Animation</option>
+          <option value="Creative Technologies">Creative Technologies</option>
+          <option value="MA/MSC Professional Practice">MA/MSC Professional Practice</option>
+          <option value="Design">Design</option>
+          <option value="Content Creation">Content Creation</option>
+        </select>
+      </label>
+      <label>Geburtsdatum:
+        <input type="text" name="dateOfBirth" placeholder="Geburtsdatum (optional)" />
+      </label>
+      <label>E-Mail:
+        <input type="email" name="email" />
+      </label>
+      <label>Ablaufdatum:
+        <input type="date" name="expiryDate" />
+      </label>
+      <label>Rolle:
+        <select name="role">
+          <option value="">Bitte wählen…</option>
+          <option value="student">student</option>
+          <option value="admin">admin</option>
+        </select>
+      </label>
+      <label>Matrikelnummer:
+        <input type="text" name="studentNumber" />
+      </label>
+      <label>Profilbild-URL:
+        <span style="display:flex;align-items:center;gap:16px;">
+          <input type="url" name="profilePictureURL" style="flex:1;min-width:0;" />
+          <img id="profile-pic-preview" class="profile-pic-preview" src="" alt="Profilbild Vorschau" style="margin-bottom:0;" />
+        </span>
+      </label>
+      <div class="form-actions">
+        <button type="submit">Speichern</button>
+        <button id="benutzer-cancel-btn">Abbrechen</button>
+        <button id="benutzer-delete-btn" type="button" style="background:#dc3545; color:#fff;">Löschen</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
