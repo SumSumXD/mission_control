@@ -282,14 +282,14 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
       if (!selectedBenutzerId) return;
       if (!confirm('Soll dieser Benutzer wirklich gelöscht werden?')) return;
       await deleteDoc(doc(db, 'users', selectedBenutzerId));
-      // Versuche auch den Auth-User zu löschen
       try {
         const auth = getAuth();
-        // Hole das aktuelle User-Objekt aus Auth
-        // Admin SDK ist im Client nicht verfügbar, daher kann nur der aktuell eingeloggte User sich selbst löschen
-        // Wenn der Admin sich selbst löscht, wird er aus Auth entfernt
+        // Nur wenn der aktuell eingeloggte User sich selbst löscht, auch aus Auth entfernen und ausloggen
         if (auth.currentUser && auth.currentUser.uid === selectedBenutzerId) {
           await deleteUser(auth.currentUser);
+          alert('Dein Benutzerkonto wurde gelöscht. Du wirst abgemeldet.');
+          window.location.href = 'index.html';
+          return;
         }
         // Für andere User ist ein Löschen aus Auth im Client nicht möglich (nur mit Admin SDK/Cloud Function)
       } catch (err) {

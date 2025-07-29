@@ -1,3 +1,8 @@
+      
+      <label for="supervisors-fields" style="display:none;" id="supervisors-label">Supervisoren:
+        <div id="supervisors-fields" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
+        <button type="button" id="add-supervisor-btn" style="margin-top:4px; width:auto; padding: 6px 12px; font-size: 0.9em;">+ Hinzufügen</button>
+      </label>
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -373,6 +378,11 @@
         // Nach Login: Prüfe Rolle in Firestore
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
+        console.log('DEBUG: user.uid', user.uid);
+        console.log('DEBUG: userSnap.exists()', userSnap.exists());
+        if (userSnap.exists()) {
+          console.log('DEBUG: userSnap.data()', userSnap.data());
+        }
         if (!userSnap.exists() || userSnap.data().role !== 'admin') {
           // Nicht admin: Logout und Meldung
           await signOut(auth);
@@ -385,8 +395,8 @@
         const welcomeDiv = document.getElementById('welcome-message');
         const userData = userSnap.data();
         let userName;
-        if (userData.firstName && userData.lastName) {
-          userName = `${userData.firstName} ${userData.lastName}`;
+        if (userData.firstName) {
+          userName = userData.firstName;
         } else if (userData.fullName) {
           userName = userData.fullName;
         } else if (userData.FullName) {
@@ -718,5 +728,29 @@
       </a>
     </div>
   </div>
+
+  <!-- Panel-Formular für Mitarbeiterdaten (wird per JS ein-/ausgeblendet) -->
+  <form id="data-form" class="panel-form hidden">
+    <label for="name">Name:
+      <input type="text" name="name" required />
+    </label>
+    <label for="email">E-Mail:
+      <input type="email" name="email" required />
+    </label>
+    <label for="phone">Telefon:
+      <input type="text" name="phone" />
+    </label>
+    <!-- Supervisoren-Felder (werden per JS ein-/ausgeblendet) -->
+    <label for="supervisors-fields" style="display:none;" id="supervisors-label">Supervisoren:
+      <div id="supervisors-fields" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;"></div>
+      <button type="button" id="add-supervisor-btn" style="margin-top:4px; width:auto; padding: 6px 12px; font-size: 0.9em;">+ Hinzufügen</button>
+    </label>
+    <!-- Weitere Felder wie Öffnungszeiten, Urlaub etc. können hier ergänzt werden -->
+    <div class="form-actions">
+      <button type="submit">Speichern</button>
+      <button type="button" id="cancel-btn">Abbrechen</button>
+    </div>
+  </form>
+  </div>
 </body>
-</html> 
+</html>

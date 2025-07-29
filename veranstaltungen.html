@@ -102,6 +102,165 @@
       box-shadow: 0 2px 8px #0002;
     }
   </style>
+</head>
+<body>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/SAE_Logo_Black_1500x1500px.png" alt="SAE Logo" class="sae-logo">
+  <a href="index.html" class="back-btn">← Zurück zum Dashboard</a>
+  <div id="status-overlay">
+    <div class="status-box" id="status-box"></div>
+  </div>
+  <button id="logout-btn" class="logout-btn hidden">Logout</button>
+  <h1>Veranstaltungen</h1>
+  <div class="main-flex">
+    <button id="show-form-btn" class="show-form-btn">Veranstaltung erstellen</button>
+    <div style="display:flex;gap:14px;align-items:center;margin-bottom:18px;">
+      <input id="event-search" type="text" placeholder="Suchen..." style="flex:1;max-width:350px;padding:10px 14px;font-size:1.05em;border:2px solid #e1e5e9;border-radius:8px;box-sizing:border-box;" />
+      <select id="event-type-filter" style="width:180px;padding:8px 12px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1em;">
+        <option value="all">Alle Events</option>
+        <option value="firestore">Eigene Events</option>
+        <option value="eventbrite">Eventbrite Events</option>
+      </select>
+    </div>
+    <form id="event-form" class="event-form hidden">
+<script>
+  // Suchfunktion und Filter für Events
+  // ...existing code...
+  function renderEvents(events) {
+    const list = document.getElementById('event-list');
+    list.innerHTML = '';
+    if (!events || events.length === 0) {
+      list.innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Es gibt aktuell keine Veranstaltungen.</div>';
+      return;
+    }
+    events.forEach(ev => {
+      // Prüfe, ob Event vorbei ist (Datum+Uhrzeit, falls vorhanden)
+      let isPast = false;
+      if (ev.date) {
+        let endDate = new Date(ev.date);
+        if (ev.time_to) {
+          // Zeitformat: HH:mm
+          const [h, m] = ev.time_to.split(':');
+          endDate.setHours(Number(h) || 0, Number(m) || 0, 0, 0);
+        } else {
+          // Wenn keine Endzeit, dann Tagesende
+          endDate.setHours(23,59,59,999);
+        }
+        isPast = endDate < new Date();
+      }
+      const div = document.createElement('div');
+      div.className = 'event-item' + (isPast ? ' event-past' : '');
+      // Overlay-Box und Meldung entfernt
+      if (ev.type === 'eventbrite') {
+        div.innerHTML = `
+          ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
+          <div class=\"event-title\">${ev.title}</div>
+          <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}${ev.address ? ' · ' + ev.address : ''}</div>
+          <div class=\"event-desc\">${ev.description}</div>
+          <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
+        `;
+      } else {
+        let timeStr = '';
+        if (ev.time_from && ev.time_to) {
+          timeStr = `<span style='color:#007bff;'>${ev.time_from} - ${ev.time_to} Uhr</span>`;
+        } else if (ev.time_from) {
+          timeStr = `<span style='color:#007bff;'>ab ${ev.time_from} Uhr</span>`;
+        } else if (ev.time_to) {
+          timeStr = `<span style='color:#007bff;'>bis ${ev.time_to} Uhr</span>`;
+        }
+        div.innerHTML = `
+          ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
+          <div class=\"event-title\">${ev.title}</div>
+          <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
+          <div class=\"event-desc\">${ev.description}</div>
+          <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
+          <div class=\"event-actions\">
+            <button class='edit-btn' data-id='${ev.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
+            <button class='delete-btn' data-id='${ev.id}' title='Löschen'>❌ Löschen</button>
+          </div>
+        `;
+      }
+      list.appendChild(div);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('event-search');
+    const filterSelect = document.getElementById('event-type-filter');
+    function applyEventFilter() {
+      let filtered = allEventsCache;
+      const filterVal = filterSelect.value;
+      if (filterVal === 'firestore') {
+        filtered = filtered.filter(ev => ev.type === 'firestore');
+      } else if (filterVal === 'eventbrite') {
+        filtered = filtered.filter(ev => ev.type === 'eventbrite');
+      }
+      const val = searchInput.value.trim().toLowerCase();
+      if (val) {
+        filtered = filtered.filter(ev =>
+          (ev.title && ev.title.toLowerCase().includes(val)) ||
+          (ev.description && ev.description.toLowerCase().includes(val)) ||
+          (ev.location && ev.location.toLowerCase().includes(val)) ||
+          (ev.address && ev.address.toLowerCase().includes(val))
+        );
+      }
+      renderEvents(filtered);
+    }
+    if (searchInput) {
+      searchInput.addEventListener('input', applyEventFilter);
+    }
+    if (filterSelect) {
+      filterSelect.addEventListener('change', applyEventFilter);
+    }
+  });
+
+// Event-Listener für Löschen-Button (nur eigene Events) - nur einmal definiert!
+document.getElementById('event-list').addEventListener('click', async (e) => {
+  if (e.target.classList.contains('delete-btn')) {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    if (!confirm('Soll dieses Event wirklich gelöscht werden?')) return;
+    try {
+      await deleteDoc(doc(db, 'events', id));
+      showStatusOnce('Event gelöscht!', 1200);
+      loadEvents();
+    } catch (err) {
+      showStatusOnce('Fehler beim Löschen: ' + (err?.message || err));
+    }
+  }
+});
+</script>
+      <div id="form-mode-label" style="font-weight:600; color:#007bff; margin-bottom:10px; display:none;"></div>
+      <label>Titel:
+        <input type="text" name="title" required />
+      </label>
+      <div class="datetime-row">
+        <label style="margin-right:18px; min-width:110px;">Datum:
+          <input type="date" name="date" required style="width:130px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
+        </label>
+        <label style="margin-right:12px; min-width:90px;">Uhrzeit von:
+          <input type="time" name="time_from" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
+        </label>
+        <label style="min-width:90px;">Uhrzeit bis:
+          <input type="time" name="time_to" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
+        </label>
+      </div>
+      <label>Bildadresse:
+        <input type="url" name="picture" placeholder="https://... (optional)" />
+      </label>
+      <label>Standort:
+        <input type="text" name="location" placeholder="z.B. Raum 101, Online, etc." />
+      </label>
+      <label>Beschreibung:
+        <textarea name="description" placeholder="Beschreibung (optional)"></textarea>
+      </label>
+      <div style="display:flex; gap:10px; margin-top:18px;">
+        <button type="submit" id="save-btn">Veranstaltung erstellen</button>
+        <button type="button" id="cancel-btn" style="background:#6c757d; color:white;">Abbrechen</button>
+      </div>
+    </form>
+    <div id="event-list" class="event-list"></div>
+
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
@@ -344,116 +503,138 @@
     cancelBtn.addEventListener('click', () => {
       hideForm();
     });
-  </script>
-</head>
-<body>
-  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/SAE_Logo_Black_1500x1500px.png" alt="SAE Logo" class="sae-logo">
-  <a href="index.html" class="back-btn">← Zurück zum Dashboard</a>
-  <div id="status-overlay">
-    <div class="status-box" id="status-box"></div>
-  </div>
-  <button id="logout-btn" class="logout-btn hidden">Logout</button>
-  <h1>Veranstaltungen</h1>
-  <div class="main-flex">
-    <button id="show-form-btn" class="show-form-btn">Veranstaltung erstellen</button>
-    <input id="event-search" type="text" placeholder="Suchen..." style="width:100%;max-width:350px;margin:18px 0 18px 0;padding:10px 14px;font-size:1.05em;border:2px solid #e1e5e9;border-radius:8px;box-sizing:border-box;" />
-    <form id="event-form" class="event-form hidden">
-<script>
-  // Suchfunktion für Events
-  let allEventsCache = [];
-  function renderEvents(events) {
-    const list = document.getElementById('event-list');
-    list.innerHTML = '';
-    if (!events || events.length === 0) {
-      list.innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Es gibt aktuell keine Veranstaltungen.</div>';
-      return;
-    }
-    events.forEach(ev => {
-      const div = document.createElement('div');
-      div.className = 'event-item';
-      if (ev.type === 'eventbrite') {
-        div.innerHTML = `
-          ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
-          <div class=\"event-title\">${ev.title}</div>
-          <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}${ev.address ? ' · ' + ev.address : ''}</div>
-          <div class=\"event-desc\">${ev.description}</div>
-          <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
-          <div style=\"margin-top:10px;\"><a href=\"${ev.url}\" target=\"_blank\" style=\"color:#007bff;text-decoration:underline;font-weight:600;\">Event auf Eventbrite ansehen</a></div>
-        `;
-      } else {
-        let timeStr = '';
-        if (ev.time_from && ev.time_to) {
-          timeStr = `<span style='color:#007bff;'>${ev.time_from} - ${ev.time_to} Uhr</span>`;
-        } else if (ev.time_from) {
-          timeStr = `<span style='color:#007bff;'>ab ${ev.time_from} Uhr</span>`;
-        } else if (ev.time_to) {
-          timeStr = `<span style='color:#007bff;'>bis ${ev.time_to} Uhr</span>`;
-        }
-        div.innerHTML = `
-          ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
-          <div class=\"event-title\">${ev.title}</div>
-          <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
-          <div class=\"event-desc\">${ev.description}</div>
-          <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
-          <div class=\"event-actions\">
-            <button class='edit-btn' data-id='${ev.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
-            <button class='delete-btn' data-id='${ev.id}' title='Löschen'>❌ Löschen</button>
-          </div>
-        `;
+
+    // Suchfunktion und Filter für Events
+    let allEventsCache = [];
+    function renderEvents(events) {
+      const list = document.getElementById('event-list');
+      list.innerHTML = '';
+      if (!events || events.length === 0) {
+        list.innerHTML = '<div style="color:#888; text-align:center; padding:32px 0; font-size:1.08em;">Es gibt aktuell keine Veranstaltungen.</div>';
+        return;
       }
-      list.appendChild(div);
-    });
-  }
-  document.addEventListener('DOMContentLoaded', () => {
-    const searchInput = document.getElementById('event-search');
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        const val = e.target.value.trim().toLowerCase();
-        if (!val) {
-          renderEvents(allEventsCache);
-          return;
+      events.forEach(ev => {
+        // Prüfe, ob Event vorbei ist (Datum+Uhrzeit, falls vorhanden)
+        let isPast = false;
+        if (ev.date) {
+          let endDate = new Date(ev.date);
+          if (ev.time_to) {
+            // Zeitformat: HH:mm
+            const [h, m] = ev.time_to.split(':');
+            endDate.setHours(Number(h) || 0, Number(m) || 0, 0, 0);
+          } else {
+            // Wenn keine Endzeit, dann Tagesende
+            endDate.setHours(23,59,59,999);
+          }
+          isPast = endDate < new Date();
         }
-        const filtered = allEventsCache.filter(ev =>
-          (ev.title && ev.title.toLowerCase().includes(val)) ||
-          (ev.description && ev.description.toLowerCase().includes(val)) ||
-          (ev.location && ev.location.toLowerCase().includes(val)) ||
-          (ev.address && ev.address.toLowerCase().includes(val))
-        );
-        renderEvents(filtered);
+        const div = document.createElement('div');
+        div.className = 'event-item' + (isPast ? ' event-past' : '');
+        // Overlay-Box und Meldung entfernt
+        if (ev.type === 'eventbrite') {
+          div.innerHTML = `
+            ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
+            <div class=\"event-title\">${ev.title}</div>
+            <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}${ev.address ? ' · ' + ev.address : ''}</div>
+            <div class=\"event-desc\">${ev.description}</div>
+            <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
+          `;
+        } else {
+          let timeStr = '';
+          if (ev.time_from && ev.time_to) {
+            timeStr = `<span style='color:#007bff;'>${ev.time_from} - ${ev.time_to} Uhr</span>`;
+          } else if (ev.time_from) {
+            timeStr = `<span style='color:#007bff;'>ab ${ev.time_from} Uhr</span>`;
+          } else if (ev.time_to) {
+            timeStr = `<span style='color:#007bff;'>bis ${ev.time_to} Uhr</span>`;
+          }
+          div.innerHTML = `
+            ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
+            <div class=\"event-title\">${ev.title}</div>
+            <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
+            <div class=\"event-desc\">${ev.description}</div>
+            <div class=\"event-location\" style=\"color:#555; font-size:0.97em; margin-top:4px;\">${ev.location ? '📍 ' + ev.location : ''}</div>
+            <div class=\"event-actions\">
+              <button class='edit-btn' data-id='${ev.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
+              <button class='delete-btn' data-id='${ev.id}' title='Löschen'>❌ Löschen</button>
+            </div>
+          `;
+        }
+        list.appendChild(div);
       });
     }
-  });
-</script>
-      <div id="form-mode-label" style="font-weight:600; color:#007bff; margin-bottom:10px; display:none;"></div>
-      <label>Titel:
-        <input type="text" name="title" required />
-      </label>
-      <div class="datetime-row">
-        <label style="margin-right:18px; min-width:110px;">Datum:
-          <input type="date" name="date" required style="width:130px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
-        </label>
-        <label style="margin-right:12px; min-width:90px;">Uhrzeit von:
-          <input type="time" name="time_from" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
-        </label>
-        <label style="min-width:90px;">Uhrzeit bis:
-          <input type="time" name="time_to" required style="width:100px; height:28px; display:inline-block; margin-left:6px; font-size:1em; padding:2px 6px;" />
-        </label>
-      </div>
-      <label>Bildadresse:
-        <input type="url" name="picture" placeholder="https://... (optional)" />
-      </label>
-      <label>Standort:
-        <input type="text" name="location" placeholder="z.B. Raum 101, Online, etc." />
-      </label>
-      <label>Beschreibung:
-        <textarea name="description" placeholder="Beschreibung (optional)"></textarea>
-      </label>
-      <div style="display:flex; gap:10px; margin-top:18px;">
-        <button type="submit" id="save-btn">Veranstaltung erstellen</button>
-        <button type="button" id="cancel-btn" style="background:#6c757d; color:white;">Abbrechen</button>
-      </div>
-    </form>
-    <div id="event-list" class="event-list"></div>
-  </div>
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('event-search');
+      const filterSelect = document.getElementById('event-type-filter');
+      function applyEventFilter() {
+        let filtered = allEventsCache;
+        const filterVal = filterSelect.value;
+        if (filterVal === 'firestore') {
+          filtered = filtered.filter(ev => ev.type === 'firestore');
+        } else if (filterVal === 'eventbrite') {
+          filtered = filtered.filter(ev => ev.type === 'eventbrite');
+        }
+        const val = searchInput.value.trim().toLowerCase();
+        if (val) {
+          filtered = filtered.filter(ev =>
+            (ev.title && ev.title.toLowerCase().includes(val)) ||
+            (ev.description && ev.description.toLowerCase().includes(val)) ||
+            (ev.location && ev.location.toLowerCase().includes(val)) ||
+            (ev.address && ev.address.toLowerCase().includes(val))
+          );
+        }
+        renderEvents(filtered);
+      }
+      if (searchInput) {
+        searchInput.addEventListener('input', applyEventFilter);
+      }
+      if (filterSelect) {
+        filterSelect.addEventListener('change', applyEventFilter);
+      }
+    });
+
+    // Event-Listener für Löschen-Button (nur eigene Events) - nach showStatusOnce definiert!
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('event-list').addEventListener('click', async (e) => {
+        // Edit button logic
+        if (e.target.classList.contains('edit-btn')) {
+          const id = e.target.dataset.id;
+          if (!id) return;
+          // Find event data from cache
+          const event = allEventsCache.find(ev => ev.id === id && ev.type === 'firestore');
+          if (!event) {
+            showStatusOnce('Event nicht gefunden oder kann nicht bearbeitet werden.');
+            return;
+          }
+          // Populate form fields
+          eventForm.title.value = event.title || '';
+          eventForm.date.value = event.date ? new Date(event.date).toISOString().slice(0,10) : '';
+          eventForm.time_from.value = event.time_from || '';
+          eventForm.time_to.value = event.time_to || '';
+          eventForm.picture.value = event.image || '';
+          eventForm.location.value = event.location || '';
+          eventForm.description.value = event.description || '';
+          editEventId = id;
+          showForm('edit');
+          return;
+        }
+        // Delete button logic
+        if (e.target.classList.contains('delete-btn')) {
+          const id = e.target.dataset.id;
+          if (!id) return;
+          if (!confirm('Soll dieses Event wirklich gelöscht werden?')) return;
+          try {
+            await deleteDoc(doc(db, 'events', id));
+            showStatusOnce('Event gelöscht!', 1200);
+            loadEvents();
+          } catch (err) {
+            showStatusOnce('Fehler beim Löschen: ' + (err?.message || err));
+          }
+        }
+      });
+    });
+  </script>
+
 </body>
-</html> 
+</html>
