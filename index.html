@@ -89,6 +89,19 @@
     #login-form button:active {
       transform: translateY(1px);
     }
+    .forgot-password-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      color: #007bff;
+      text-decoration: none;
+      font-size: 0.9em;
+      transition: color 0.2s ease;
+    }
+    .forgot-password-link:hover {
+      color: #0056b3;
+      text-decoration: underline;
+    }
     .mitarbeiter-liste { 
       background: #ffffff; 
       border: none; 
@@ -294,7 +307,7 @@
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -437,6 +450,41 @@
       } catch (err) {
         stopLoading();
         showStatusOnce('Login fehlgeschlagen: ' + err.message);
+      }
+    });
+
+    // Passwort zurücksetzen
+    document.getElementById('forgot-password-link').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const email = loginForm.email.value;
+      
+      if (!email) {
+        showStatusOnce('Bitte geben Sie zuerst Ihre E-Mail-Adresse ein.');
+        return;
+      }
+      
+      try {
+        startLoading('Sende Reset-E-Mail...');
+        await sendPasswordResetEmail(auth, email);
+        stopLoading();
+        showStatusOnce('Reset-E-Mail wurde an ' + email + ' gesendet. Überprüfen Sie Ihr Postfach.', 4000);
+      } catch (err) {
+        stopLoading();
+        let errorMessage = 'Fehler beim Senden der Reset-E-Mail: ';
+        switch (err.code) {
+          case 'auth/user-not-found':
+            errorMessage += 'Diese E-Mail-Adresse ist nicht registriert.';
+            break;
+          case 'auth/invalid-email':
+            errorMessage += 'Ungültige E-Mail-Adresse.';
+            break;
+          case 'auth/too-many-requests':
+            errorMessage += 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.';
+            break;
+          default:
+            errorMessage += err.message;
+        }
+        showStatusOnce(errorMessage, 4000);
       }
     });
 
@@ -708,6 +756,7 @@
       <input type="password" name="password" required />
     </label>
     <button type="submit">Login</button>
+    <a href="#" class="forgot-password-link" id="forgot-password-link">Passwort vergessen?</a>
   </form>
   <div id="dashboard" class="main-flex hidden">
     <div class="dashboard-grid">

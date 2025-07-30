@@ -103,6 +103,37 @@
       max-height: 260px;
       box-shadow: 0 2px 8px #0002;
     }
+    .live-badge {
+      position: absolute;
+      top: 18px;
+      right: 0;
+      background: #dc3545;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8em;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+      z-index: 10;
+    }
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: white;
+      border-radius: 50%;
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0%   { opacity: 0.3; }
+      40%  { opacity: 1; }
+      60%  { opacity: 1; }
+      100% { opacity: 0.3; }
+    }
   </style>
 </head>
 <body>
@@ -127,6 +158,48 @@
 <script>
   // Suchfunktion und Filter für Events
   // ...existing code...
+  
+  // Hilfsfunktion: Prüft, ob eine Veranstaltung gerade läuft
+  function isEventLive(event) {
+    if (!event.date) return false;
+    
+    const now = new Date();
+    const eventDate = new Date(event.date);
+    
+    // Prüfe, ob es heute ist
+    if (eventDate.toDateString() !== now.toDateString()) {
+      return false;
+    }
+    
+    // Wenn Start- und Endzeit vorhanden sind
+    if (event.time_from && event.time_to) {
+      const [startHour, startMin] = event.time_from.split(':').map(Number);
+      const [endHour, endMin] = event.time_to.split(':').map(Number);
+      
+      const startTime = new Date();
+      startTime.setHours(startHour, startMin, 0, 0);
+      
+      const endTime = new Date();
+      endTime.setHours(endHour, endMin, 0, 0);
+      
+      return now >= startTime && now <= endTime;
+    }
+    
+    // Wenn nur Startzeit vorhanden ist, gilt als live für 2 Stunden
+    if (event.time_from) {
+      const [startHour, startMin] = event.time_from.split(':').map(Number);
+      const startTime = new Date();
+      startTime.setHours(startHour, startMin, 0, 0);
+      
+      const endTime = new Date(startTime);
+      endTime.setHours(startTime.getHours() + 2); // 2 Stunden Standard-Dauer
+      
+      return now >= startTime && now <= endTime;
+    }
+    
+    return false;
+  }
+  
   function renderEvents(events) {
     const list = document.getElementById('event-list');
     list.innerHTML = '';
@@ -149,11 +222,20 @@
         }
         isPast = endDate < new Date();
       }
+      
+      // Prüfe, ob Event gerade läuft
+      const isLive = isEventLive(ev);
+      
       const div = document.createElement('div');
       div.className = 'event-item' + (isPast ? ' event-past' : '');
+      
+      // LIVE-Badge HTML
+      const liveBadge = isLive ? '<div class="live-badge"><div class="live-dot"></div>LIVE</div>' : '';
+      
       // Overlay-Box und Meldung entfernt
       if (ev.type === 'eventbrite') {
         div.innerHTML = `
+          ${liveBadge}
           ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
           <div class=\"event-title\">${ev.title}</div>
           <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}${ev.address ? ' · ' + ev.address : ''}</div>
@@ -170,6 +252,7 @@
           timeStr = `<span style='color:#007bff;'>bis ${ev.time_to} Uhr</span>`;
         }
         div.innerHTML = `
+          ${liveBadge}
           ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
           <div class=\"event-title\">${ev.title}</div>
           <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
@@ -530,11 +613,20 @@ document.getElementById('event-list').addEventListener('click', async (e) => {
           }
           isPast = endDate < new Date();
         }
+        
+        // Prüfe, ob Event gerade läuft
+        const isLive = isEventLive(ev);
+        
         const div = document.createElement('div');
         div.className = 'event-item' + (isPast ? ' event-past' : '');
+        
+        // LIVE-Badge HTML
+        const liveBadge = isLive ? '<div class="live-badge"><div class="live-dot"></div>LIVE</div>' : '';
+        
         // Overlay-Box und Meldung entfernt
         if (ev.type === 'eventbrite') {
           div.innerHTML = `
+            ${liveBadge}
             ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
             <div class=\"event-title\">${ev.title}</div>
             <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleString('de-AT', { dateStyle: 'short', timeStyle: 'short' }) : ''}${ev.address ? ' · ' + ev.address : ''}</div>
@@ -551,6 +643,7 @@ document.getElementById('event-list').addEventListener('click', async (e) => {
             timeStr = `<span style='color:#007bff;'>bis ${ev.time_to} Uhr</span>`;
           }
           div.innerHTML = `
+            ${liveBadge}
             ${ev.image ? `<div class=\"event-image-wrap\"><img src=\"${ev.image}\" alt=\"Event Bild\" class=\"event-image\"></div>` : ''}
             <div class=\"event-title\">${ev.title}</div>
             <div class=\"event-date\">${ev.date ? new Date(ev.date).toLocaleDateString('de-AT') : ''}${timeStr ? ' · ' + timeStr : ''}</div>
