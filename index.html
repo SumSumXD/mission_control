@@ -330,7 +330,8 @@
       "Head Instructor",
       "Supervisor",
       "Campus Manager",
-      "Community Manager"
+      "Community Manager",
+      "Alumni"
     ];
 
     // UI-Elemente
@@ -789,6 +790,19 @@
     </label>
     <label for="phone">Telefon:
       <input type="text" name="phone" />
+    </label>
+    <label for="role">Rolle:
+      <select name="role" required>
+        <option value="">Bitte wählen…</option>
+        <option value="Staff">Staff</option>
+        <option value="Academic Coordinator">Academic Coordinator</option>
+        <option value="Head of Instructor">Head of Instructor</option>
+        <option value="Head Instructor">Head Instructor</option>
+        <option value="Supervisor">Supervisor</option>
+        <option value="Campus Manager">Campus Manager</option>
+        <option value="Community Manager">Community Manager</option>
+        <option value="Alumni">Alumni</option>
+      </select>
     </label>
     <!-- Supervisoren-Felder (werden per JS ein-/ausgeblendet) -->
     <label for="supervisors-fields" style="display:none;" id="supervisors-label">Supervisoren:

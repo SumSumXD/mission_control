@@ -223,6 +223,11 @@
         isPast = endDate < new Date();
       }
       
+      // Vergangene Eventbrite-Events ausblenden
+      if (ev.type === 'eventbrite' && isPast) {
+        return; // Event überspringen
+      }
+      
       // Prüfe, ob Event gerade läuft
       const isLive = isEventLive(ev);
       
@@ -612,6 +617,11 @@ document.getElementById('event-list').addEventListener('click', async (e) => {
             endDate.setHours(23,59,59,999);
           }
           isPast = endDate < new Date();
+        }
+        
+        // Vergangene Eventbrite-Events ausblenden
+        if (ev.type === 'eventbrite' && isPast) {
+          return; // Event überspringen
         }
         
         // Prüfe, ob Event gerade läuft
