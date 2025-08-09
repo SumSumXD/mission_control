@@ -59,6 +59,40 @@
       background: #0056b3;
     }
     .news-form.hidden { display: none; }
+    
+    /* Course Button Styles */
+    .course-btn:hover { 
+      background: #e9ecef !important; 
+      border-color: #007bff !important; 
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,123,255,0.2);
+    }
+    .course-btn.active { 
+      background: #007bff !important; 
+      color: white !important; 
+      border-color: #007bff !important; 
+    }
+    .course-btn:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
+    
+    /* Filter Button Styles */
+    .filter-btn:hover { 
+      background: #e9ecef !important; 
+      border-color: #007bff !important; 
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,123,255,0.2);
+    }
+    .filter-btn.active { 
+      background: #007bff !important; 
+      color: white !important; 
+      border-color: #007bff !important; 
+    }
+    .filter-btn:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+    }
   </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
@@ -155,8 +189,30 @@
               const pad = n => n.toString().padStart(2, '0');
               dateStr = `${pad(dt.getDate())}.${pad(dt.getMonth()+1)}.${dt.getFullYear()} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
             }
+            
+            // Course-Badges erstellen
+            let courseBadges = '';
+            if (d.course && Array.isArray(d.course)) {
+              const courseNames = {
+                'Film': 'Film',
+                'Audio': 'Audio',
+                'Games': 'Games',
+                'Music Business': 'Music Business',
+                'Web and Mobile': 'Web and Mobile',
+                'Voice': 'Voice',
+                'Animation': 'Animation',
+                'Creative Technologies': 'Creative Technologies',
+                'Design': 'Design',
+                'Content Creation': 'Content Creation'
+              };              courseBadges = d.course.map(courseValue => {
+                const courseName = courseNames[courseValue] || courseValue;
+                return `<span class="course-badge" style="background: #007bff; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.75em; margin-right: 4px;">${courseName}</span>`;
+              }).join('');
+            }
+            
             div.innerHTML = `<div class=\"news-title\">${d.title ? d.title : ''}</div>
               <div class=\"news-desc\">${d.description ? d.description : ''}</div>
+              ${courseBadges ? `<div style="margin-top: 8px;">${courseBadges}</div>` : ''}
               <div class=\"news-actions\">
                 <button class='edit-btn' data-id='${docSnap.id}' title='Bearbeiten'>✏️ Bearbeiten</button>
                 <button class='delete-btn' data-id='${docSnap.id}' title='Löschen'>❌ Löschen</button>
@@ -191,10 +247,29 @@
               if (snap.exists()) {
                 const d = snap.data();
                 newsForm.title.value = d.title || '';
-                // Kein Datumsfeld mehr
                 newsForm.description.value = d.description || '';
+                
+                // Course-Buttons setzen
+                const courseButtons = document.querySelectorAll('.course-btn');
+                courseButtons.forEach(btn => btn.classList.remove('active'));
+                
+                if (d.course && Array.isArray(d.course)) {
+                  d.course.forEach(courseValue => {
+                    const button = document.querySelector(`.course-btn[data-course="${courseValue}"]`);
+                    if (button) {
+                      button.classList.add('active');
+                    }
+                  });
+                } else {
+                  // Fallback: "Alle" auswählen wenn kein course-Feld vorhanden
+                  const allButton = document.querySelector('.course-btn[data-course="all"]');
+                  if (allButton) allButton.classList.add('active');
+                }
+                
                 editNewsId = id;
                 showForm('edit');
+                // Event-Listener für Buttons neu setup nach dem Anzeigen des Forms
+                setTimeout(setupCourseButtons, 50);
               }
             });
           });
@@ -233,12 +308,19 @@
       showFormBtn.style.display = 'none';
       setFormMode(mode);
       newsForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Event-Listener für Buttons setup nach dem Anzeigen des Forms
+      setTimeout(setupCourseButtons, 50);
     }
 
     function hideForm() {
       newsForm.classList.add('hidden');
       showFormBtn.style.display = 'inline-block';
       newsForm.reset();
+      
+      // Buttons manuell zurücksetzen - ALLE deselektieren
+      const courseButtons = document.querySelectorAll('.course-btn');
+      courseButtons.forEach(btn => btn.classList.remove('active'));
+      
       editNewsId = null;
       setFormMode();
     }
@@ -251,10 +333,59 @@
       hideForm();
     });
 
+    // Course-Button Logik
+    function setupCourseButtons() {
+      const allButton = document.querySelector('.course-btn[data-course="all"]');
+      const otherButtons = document.querySelectorAll('.course-btn:not([data-course="all"])');
+      
+      // Alle Buttons clickable machen - erst alte Event-Listener entfernen
+      document.querySelectorAll('.course-btn').forEach(btn => {
+        // Clone und replace um alte Event-Listener zu entfernen
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+      });
+      
+      // Neue Referenzen holen nach dem Klonen
+      const newAllButton = document.querySelector('.course-btn[data-course="all"]');
+      const newOtherButtons = document.querySelectorAll('.course-btn:not([data-course="all"])');
+      
+      document.querySelectorAll('.course-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const course = this.dataset.course;
+          
+          if (course === 'all') {
+            // "Alle" ausgewählt - andere deselektieren
+            newOtherButtons.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+          } else {
+            // Einzelkurs ausgewählt - "Alle" deselektieren, aber anderen Kurse bleiben
+            newAllButton.classList.remove('active');
+            this.classList.toggle('active');
+            
+            // KEINE automatische "Alle" Auswahl mehr
+          }
+        });
+      });
+    }
+    
+    // Setup nach DOM Load
+    setTimeout(setupCourseButtons, 100);
+
     newsForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const title = e.target.title.value.trim();
       const description = e.target.description.value.trim();
+      
+      // Course-Auswahl sammeln
+      const selectedCourses = [];
+      const activeButtons = document.querySelectorAll('.course-btn.active');
+      activeButtons.forEach(btn => {
+        selectedCourses.push(btn.dataset.course);
+      });
+      
+      // Fallback auf "all" wenn nichts ausgewählt
+      const courseValue = selectedCourses.length > 0 ? selectedCourses : ['all'];
+      
       if (!title || !description) {
         showStatusOnce('Bitte Titel und Beschreibung angeben!');
         return;
@@ -265,18 +396,22 @@
           // Beim Bearbeiten: createdAt bleibt erhalten, kein neues Datum
           await updateDoc(doc(db, 'news', editNewsId), {
             title,
-            description
+            description,
+            course: courseValue
           });
           showStatusOnce('Nachricht aktualisiert!', 1200);
         } else {
           await addDoc(collection(db, 'news'), {
             title,
             description,
+            course: courseValue,
             createdAt: Timestamp.now()
           });
           showStatusOnce('Nachricht gespeichert!', 1200);
         }
         e.target.reset();
+        // Buttons zurücksetzen
+        setupCourseButtons();
         editNewsId = null;
         hideForm();
         loadNews();
@@ -290,6 +425,94 @@
         stopLoading();
       }
     });
+
+    // News Filter Functionality
+    let currentFilter = 'all';
+    let allNews = [];
+
+    function setupNewsFilter() {
+      const filterButtons = document.querySelectorAll('.filter-btn');
+      
+      // Initialize button styles
+      filterButtons.forEach(btn => {
+        if (btn.classList.contains('active')) {
+          btn.style.background = '#007bff';
+          btn.style.color = 'white';
+          btn.style.borderColor = '#007bff';
+        } else {
+          btn.style.background = '#f8f9fa';
+          btn.style.color = '#495057';
+          btn.style.borderColor = '#dee2e6';
+        }
+      });
+      
+      filterButtons.forEach(button => {
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        newButton.addEventListener('click', function() {
+          // Remove active class and reset styles from all filter buttons
+          document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            btn.style.background = '#f8f9fa';
+            btn.style.color = '#495057';
+            btn.style.borderColor = '#dee2e6';
+          });
+          
+          // Add active class and styles to clicked button
+          this.classList.add('active');
+          this.style.background = '#007bff';
+          this.style.color = 'white';
+          this.style.borderColor = '#007bff';
+          
+          // Set current filter
+          currentFilter = this.dataset.filter;
+          
+          // Filter news
+          filterNews();
+        });
+      });
+    }
+
+    function filterNews() {
+      const newsList = document.getElementById('news-list');
+      const newsItems = newsList.querySelectorAll('.news-item');
+      
+      newsItems.forEach(item => {
+        if (currentFilter === 'all') {
+          item.style.display = 'block';
+        } else {
+          const courseBadges = item.querySelectorAll('.course-badge');
+          let hasMatchingCourse = false;
+          
+          courseBadges.forEach(badge => {
+            const courseText = badge.textContent.trim();
+            
+            // Direct string comparison and also check case-insensitive
+            if (courseText === currentFilter || courseText.toLowerCase() === currentFilter.toLowerCase()) {
+              hasMatchingCourse = true;
+            }
+            
+            // Additional checks for special cases with different naming
+            if (currentFilter === 'Web and Mobile' && (courseText.includes('Web') || courseText.includes('Mobile'))) {
+              hasMatchingCourse = true;
+            }
+          });
+          
+          item.style.display = hasMatchingCourse ? 'block' : 'none';
+        }
+      });
+    }
+
+    // Override loadNews to setup filter after loading
+    const originalLoadNews = loadNews;
+    loadNews = async function() {
+      await originalLoadNews();
+      setTimeout(() => {
+        setupNewsFilter();
+        filterNews();
+      }, 100);
+    };
   </script>
 </head>
 <body>
@@ -311,11 +534,93 @@
       <label>Beschreibung:
         <textarea name="description" placeholder="Beschreibung" required></textarea>
       </label>
+      
+      <label style="margin-bottom: 8px;">Kurse:</label>
+      <div style="background: #fff; border: 2px solid #e1e5e9; border-radius: 8px; padding: 16px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <button type="button" class="course-btn" data-course="all" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Alle
+          </button>
+          <button type="button" class="course-btn" data-course="Film" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Film
+          </button>
+          <button type="button" class="course-btn" data-course="Audio" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Audio
+          </button>
+          <button type="button" class="course-btn" data-course="Games" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Games
+          </button>
+          <button type="button" class="course-btn" data-course="Music Business" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Music Business
+          </button>
+          <button type="button" class="course-btn" data-course="Web and Mobile" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Web & Mobile
+          </button>
+          <button type="button" class="course-btn" data-course="Voice" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Voice
+          </button>
+          <button type="button" class="course-btn" data-course="Animation" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Animation
+          </button>
+          <button type="button" class="course-btn" data-course="Creative Technologies" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Creative Tech
+          </button>
+          <button type="button" class="course-btn" data-course="Design" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Design
+          </button>
+          <button type="button" class="course-btn" data-course="Content Creation" style="padding: 8px 16px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Content Creation
+          </button>
+        </div>
+      </div>
       <div style="display:flex; gap:10px; margin-top:18px;">
         <button type="submit" id="save-btn">Nachricht erstellen</button>
         <button type="button" id="cancel-btn" style="background:#6c757d; color:white;">Abbrechen</button>
       </div>
     </form>
+    
+    <!-- News Filter -->
+    <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 20px; padding: 16px 28px;">
+      <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <label style="font-weight: 600; color: #333; white-space: nowrap;">Filter nach Kurs:</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; flex: 1;">
+          <button type="button" class="filter-btn active" data-filter="all" style="padding: 6px 12px; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Alle anzeigen
+          </button>
+          <button type="button" class="filter-btn" data-filter="Film" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Film
+          </button>
+          <button type="button" class="filter-btn" data-filter="Audio" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Audio
+          </button>
+          <button type="button" class="filter-btn" data-filter="Games" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Games
+          </button>
+          <button type="button" class="filter-btn" data-filter="Music Business" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Music Business
+          </button>
+          <button type="button" class="filter-btn" data-filter="Web and Mobile" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Web & Mobile
+          </button>
+          <button type="button" class="filter-btn" data-filter="Voice" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Voice
+          </button>
+          <button type="button" class="filter-btn" data-filter="Animation" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Animation
+          </button>
+          <button type="button" class="filter-btn" data-filter="Creative Technologies" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Creative Tech
+          </button>
+          <button type="button" class="filter-btn" data-filter="Design" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Design
+          </button>
+          <button type="button" class="filter-btn" data-filter="Content Creation" style="padding: 6px 12px; background: #f8f9fa; color: #495057; border: 1px solid #dee2e6; border-radius: 15px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; white-space: nowrap; font-family: inherit;">
+            Content Creation
+          </button>
+        </div>
+      </div>
+    </div>
+    
     <div id="news-list" class="news-list"></div>
   </div>
 </body>

@@ -40,10 +40,28 @@
     .main-flex { display: flex; justify-content: center; align-items: flex-start; gap: 40px; max-width: 1000px; margin: 40px auto 0 auto; padding: 0 20px; }
     .benutzer-liste { background: #ffffff; border: none; margin-bottom: 20px; padding: 20px; min-width: 280px; max-width: 320px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
     .benutzer-liste ul { list-style: none; padding: 0; margin: 0; }
-    .benutzer-liste li { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background-color 0.2s ease; border-radius: 6px; margin-bottom: 4px; }
+    .benutzer-liste li { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background-color 0.2s ease; border-radius: 6px; margin-bottom: 4px; display: flex; align-items: center; }
     .benutzer-liste li:hover { background: #f8f9fa; }
     .benutzer-liste li:last-child { border-bottom: none; }
     .benutzer-liste li.selected { background: #007bff; color: white; }
+    .benutzer-liste li.multi-selected { background: #e3f2fd; color: #1976d2; }
+    .benutzer-liste li.multi-selected.selected { background: #1976d2; color: white; }
+    
+    .bulk-checkbox { margin-right: 12px; width: 18px; height: 18px; cursor: pointer; }
+    .bulk-actions { margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e1e5e9; display: none; }
+    .bulk-actions.visible { display: block; }
+    .bulk-actions button { margin-right: 8px; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .bulk-delete-btn { background: #dc3545; color: white; }
+    .bulk-delete-btn:hover { background: #c82333; }
+    .bulk-select-all-btn { background: #6c757d; color: white; }
+    .bulk-select-all-btn:hover { background: #5a6268; }
+    .bulk-clear-btn { background: #28a745; color: white; }
+    .bulk-clear-btn:hover { background: #218838; }
+    
+    .user-name { flex: 1; }
+    .selection-mode-toggle { margin-bottom: 16px; }
+    .selection-mode-toggle button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; background: #007bff; color: white; }
+    .selection-mode-toggle button:hover { background: #0056b3; }
     .panel-form { background: #ffffff; border: none; padding: 30px; min-width: 320px; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border-radius: 12px; }
     .panel-form.hidden { display: none; }
     form label { display: block; margin-top: 10px; font-weight: 600; color: #333; font-size: 0.95em; }
@@ -70,6 +88,8 @@
       z-index: 2000;
       justify-content: center;
       align-items: center;
+      flex-direction: column;
+      gap: 15px;
     }
     .status-box {
       background: #fff;
@@ -81,6 +101,92 @@
       color: #333;
       min-width: 180px;
       text-align: center;
+    }
+    .error-box {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+      border-radius: 8px;
+      box-shadow: 0 2px 16px #0002;
+      padding: 20px 30px;
+      font-size: 1em;
+      min-width: 300px;
+      max-width: 500px;
+      text-align: left;
+      white-space: pre-line;
+      display: none;
+    }
+    
+    /* Preview Dialog */
+    #preview-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 3000;
+      justify-content: center;
+      align-items: center;
+    }
+    .preview-dialog {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      padding: 30px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .preview-dialog h2 {
+      margin-top: 0;
+      color: #333;
+      text-align: center;
+    }
+    .preview-list {
+      margin: 20px 0;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 15px;
+    }
+    .preview-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .preview-item:last-child {
+      border-bottom: none;
+    }
+    .preview-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .preview-actions button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .preview-confirm {
+      background: #28a745;
+      color: white;
+    }
+    .preview-confirm:hover {
+      background: #218838;
+    }
+    .preview-cancel {
+      background: #6c757d;
+      color: white;
+    }
+    .preview-cancel:hover {
+      background: #545b62;
     }
   </style>
   <script type="module">
@@ -104,6 +210,8 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
     const benutzerForm = document.getElementById('benutzer-form');
     let benutzerDocs = [];
     let selectedBenutzerId = null;
+    let isSelectionMode = false;
+    let selectedUserIds = new Set();
 
     async function loadBenutzerListe() {
       benutzerUl.innerHTML = '';
@@ -122,11 +230,43 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
       } else {
         benutzerDocs.forEach((b, idx) => {
           const li = document.createElement('li');
-          li.textContent = b._displayName;
-          li.addEventListener('click', () => selectBenutzer(b.id, li));
+          li.setAttribute('data-user-id', b.id);
+          
+          if (isSelectionMode) {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'bulk-checkbox';
+            checkbox.checked = selectedUserIds.has(b.id);
+            checkbox.addEventListener('change', (e) => {
+              e.stopPropagation();
+              toggleUserSelection(b.id, checkbox.checked);
+            });
+            li.appendChild(checkbox);
+          }
+          
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'user-name';
+          nameSpan.textContent = b._displayName;
+          li.appendChild(nameSpan);
+          
+          if (selectedUserIds.has(b.id)) {
+            li.classList.add('multi-selected');
+          }
+          
+          if (!isSelectionMode) {
+            li.addEventListener('click', () => selectBenutzer(b.id, li));
+          } else {
+            li.addEventListener('click', (e) => {
+              const checkbox = li.querySelector('.bulk-checkbox');
+              checkbox.checked = !checkbox.checked;
+              toggleUserSelection(b.id, checkbox.checked);
+            });
+          }
+          
           benutzerUl.appendChild(li);
         });
       }
+      updateSelectionCount();
     }
 
     async function selectBenutzer(id, liElem) {
@@ -135,6 +275,690 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
       liElem.classList.add('selected');
       await loadBenutzerData(id);
       benutzerForm.classList.remove('hidden');
+    }
+
+    function toggleSelectionMode() {
+      isSelectionMode = !isSelectionMode;
+      const toggleBtn = document.getElementById('toggle-selection-mode');
+      const bulkActions = document.getElementById('bulk-actions');
+      
+      if (isSelectionMode) {
+        toggleBtn.textContent = 'Einzelauswahl aktivieren';
+        bulkActions.classList.add('visible');
+        benutzerForm.classList.add('hidden');
+        selectedBenutzerId = null;
+      } else {
+        toggleBtn.textContent = 'Mehrfachauswahl aktivieren';
+        bulkActions.classList.remove('visible');
+        selectedUserIds.clear();
+      }
+      
+      loadBenutzerListe();
+    }
+
+    function toggleUserSelection(userId, isSelected) {
+      if (isSelected) {
+        selectedUserIds.add(userId);
+      } else {
+        selectedUserIds.delete(userId);
+      }
+      
+      // Update visual state
+      const li = benutzerUl.querySelector(`[data-user-id="${userId}"]`);
+      if (li) {
+        if (isSelected) {
+          li.classList.add('multi-selected');
+        } else {
+          li.classList.remove('multi-selected');
+        }
+      }
+      
+      updateSelectionCount();
+    }
+
+    function updateSelectionCount() {
+      const countDiv = document.getElementById('selection-count');
+      const count = selectedUserIds.size;
+      if (count === 0) {
+        countDiv.textContent = '';
+      } else {
+        countDiv.textContent = `${count} Benutzer ausgewählt`;
+      }
+    }
+
+    function selectAllUsers() {
+      benutzerDocs.forEach(user => {
+        selectedUserIds.add(user.id);
+      });
+      loadBenutzerListe();
+    }
+
+    function clearSelection() {
+      selectedUserIds.clear();
+      loadBenutzerListe();
+    }
+
+    async function bulkDeleteUsers() {
+      if (selectedUserIds.size === 0) {
+        showStatusOnce('Keine Benutzer ausgewählt', 2000);
+        return;
+      }
+
+      const userCount = selectedUserIds.size;
+      if (!confirm(`Sollen wirklich ${userCount} Benutzer gelöscht werden?`)) {
+        return;
+      }
+
+      let deletedCount = 0;
+      let errorCount = 0;
+      let authDeletedCount = 0;
+      const userIdsToDelete = Array.from(selectedUserIds);
+      const deletedUserData = []; // Sammle Daten für Script-Generierung
+
+      showStatusOnce(`Lösche ${userCount} Benutzer automatisch (einzeln)...`, 2000);
+
+      // Automation: Rufe für jeden Benutzer die Einzellöschfunktion auf
+      for (let i = 0; i < userIdsToDelete.length; i++) {
+        const userId = userIdsToDelete[i];
+        
+        // Zwischenstatus anzeigen
+        if (userCount > 1) {
+          showStatusOnce(`Lösche Benutzer ${i + 1} von ${userCount}...`, 500);
+        }
+        
+        // Sammle Benutzerdaten vor Löschung
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          const userData = userDoc.exists() ? userDoc.data() : null;
+          deletedUserData.push({
+            uid: userId,
+            email: userData?.email || 'N/A',
+            name: userData ? `${userData.firstName || ''} ${userData.lastName || ''}`.trim() : 'N/A'
+          });
+        } catch (error) {
+          deletedUserData.push({
+            uid: userId,
+            email: 'N/A',
+            name: 'N/A'
+          });
+        }
+        
+        // Rufe die exakt gleiche Einzellöschfunktion auf
+        const result = await deleteSingleUser(userId, false); // false = keine einzelnen Statusmeldungen
+        
+        if (result.success) {
+          deletedCount++;
+          if (result.authDeleted) {
+            authDeletedCount++;
+          }
+        } else {
+          errorCount++;
+        }
+        
+        // Kleine Pause zwischen Löschungen für bessere UX
+        if (i < userIdsToDelete.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      // Finale Statusmeldung
+      if (errorCount === 0) {
+        if (authDeletedCount > 0) {
+          showStatusOnce(`${deletedCount} Benutzer vollständig gelöscht (${authDeletedCount} auch aus Auth)!`, 4000);
+        } else {
+          showStatusOnce(`${deletedCount} Benutzer aus Firestore gelöscht. Auth-Script wird generiert...`, 3000);
+        }
+      } else {
+        const authMsg = authDeletedCount > 0 ? ` (${authDeletedCount} auch aus Auth)` : '';
+        showStatusOnce(`${deletedCount} Benutzer gelöscht${authMsg}, ${errorCount} Fehler aufgetreten`, 5000);
+      }
+
+      // Generiere Browser-Console Script für Auth-Bereinigung
+      if (deletedCount > 0 && authDeletedCount < deletedCount) {
+        generateAuthCleanupScript(deletedUserData.slice(0, deletedCount));
+      }
+
+      // Auswahl zurücksetzen und Liste neu laden
+      selectedUserIds.clear();
+      await loadBenutzerListe();
+    }
+
+    // Neue Funktion: Auth-Bereinigung Script generieren
+    function generateAuthCleanupScript(deletedUsers) {
+      const authUsersToClean = deletedUsers.filter(user => user.uid && user.email !== 'N/A');
+      
+      if (authUsersToClean.length === 0) {
+        console.log('Keine Auth-Bereinigung erforderlich');
+        return;
+      }
+
+      const scriptCode = `
+// 🔥 AUTOMATISCHE AUTH-BEREINIGUNG
+// Generiert von Mission Control Web-App
+// Datum: ${new Date().toLocaleString('de-DE')}
+// Anzahl zu bereinigende Accounts: ${authUsersToClean.length}
+
+(async function autoAuthCleanup() {
+  console.log('🔥 Automatische Auth-Bereinigung gestartet...');
+  console.log('📋 ${authUsersToClean.length} Auth-Accounts werden bereinigt');
+  
+  const usersToDelete = ${JSON.stringify(authUsersToClean, null, 2)};
+  
+  let deletedCount = 0;
+  let skippedCount = 0;
+  
+  // Hilfsfunktion: Warten
+  const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  
+  // Bestätigungsdialog
+  const proceed = confirm(\`🔥 AUTH-BEREINIGUNG
+
+Gefunden: \${usersToDelete.length} Auth-Accounts zur Bereinigung
+Diese wurden bereits aus Firestore gelöscht.
+
+ACHTUNG: Diese Accounts werden AUTOMATISCH gelöscht!
+Nur fortfahren wenn Sie sicher sind!
+
+Fortfahren?\`);
+  
+  if (!proceed) {
+    console.log('❌ Auth-Bereinigung abgebrochen');
+    return;
+  }
+  
+  // Lösche jeden Auth-Account
+  for (let i = 0; i < usersToDelete.length; i++) {
+    const user = usersToDelete[i];
+    console.log(\`🗑️ Lösche \${i + 1}/\${usersToDelete.length}: \${user.email} (\${user.name})\`);
+    
+    try {
+      // Finde Benutzer-Zeile in der Tabelle
+      const rows = document.querySelectorAll('tr');
+      let userRow = null;
+      
+      for (const row of rows) {
+        if (row.textContent.includes(user.email) || row.textContent.includes(user.uid)) {
+          userRow = row;
+          break;
+        }
+      }
+      
+      if (!userRow) {
+        console.log(\`⚠️ Zeile nicht gefunden für: \${user.email}\`);
+        skippedCount++;
+        continue;
+      }
+      
+      // Zeile anklicken
+      console.log(\`🖱️ Klicke auf Benutzer-Zeile für: \${user.email}\`);
+      userRow.click();
+      await wait(500);
+      
+      // SUPER-DEBUG: Komplette Seiten-Analyse
+      console.log('\\n🔍 === VOLLSTÄNDIGE SEITEN-ANALYSE STARTET ===');
+      console.log('📍 URL:', window.location.href);
+      console.log('📝 Titel:', document.title);
+      console.log('⏰ Zeitpunkt:', new Date().toLocaleString());
+      
+      // Warten und dann alles analysieren
+      await wait(1000); // Länger warten für UI-Updates
+      
+      console.log('\\n🎯 === ALLE INTERAKTIVEN ELEMENTE ===');
+      
+      // Alle klickbaren Elemente finden
+      const clickableElements = [
+        ...document.querySelectorAll('button'),
+        ...document.querySelectorAll('[role="button"]'),
+        ...document.querySelectorAll('[role="menuitem"]'),
+        ...document.querySelectorAll('[role="option"]'),
+        ...document.querySelectorAll('a'),
+        ...document.querySelectorAll('[onclick]'),
+        ...document.querySelectorAll('[data-testid]'),
+        ...document.querySelectorAll('.mat-menu-item'),
+        ...document.querySelectorAll('.mdc-button'),
+        ...document.querySelectorAll('[tabindex]')
+      ];
+      
+      console.log(\`📊 Gefunden: \${clickableElements.length} interaktive Elemente\`);
+      
+      let elementIndex = 0;
+      clickableElements.forEach(element => {
+        if (element.offsetParent !== null || element.style.display !== 'none') {
+          const tagName = element.tagName.toLowerCase();
+          const text = (element.textContent || '').trim();
+          const ariaLabel = element.getAttribute('aria-label') || '';
+          const title = element.getAttribute('title') || '';
+          const className = element.className || '';
+          const id = element.id || '';
+          const role = element.getAttribute('role') || '';
+          const dataTestId = element.getAttribute('data-testid') || '';
+          const dataValue = element.getAttribute('data-value') || '';
+          const onclick = element.getAttribute('onclick') || '';
+          
+          // Prüfe auf relevante Delete-Begriffe
+          const allText = \`\${text} \${ariaLabel} \${title} \${className} \${id} \${dataTestId}\`.toLowerCase();
+          const isRelevant = allText.includes('delete') || allText.includes('löschen') || 
+                           allText.includes('remove') || allText.includes('trash') ||
+                           allText.includes('bin') || allText.includes('menu') ||
+                           allText.includes('more') || allText.includes('action') ||
+                           allText.includes('overflow') || allText.includes('options');
+          
+          if (isRelevant || elementIndex < 20) { // Zeige relevante + erste 20 Elemente
+            console.log(\`\\n🎯 Element \${elementIndex} (\${tagName.toUpperCase()})\${isRelevant ? ' ⭐ RELEVANT' : ''}:
+              📝 Text: "\${text}"
+              🏷️ Aria-Label: "\${ariaLabel}"
+              🏷️ Title: "\${title}"
+              🎨 Class: "\${className}"
+              🆔 ID: "\${id}"
+              👤 Role: "\${role}"
+              🧪 Data-TestId: "\${dataTestId}"
+              📊 Data-Value: "\${dataValue}"
+              🖱️ OnClick: "\${onclick.substring(0, 50)}\${onclick.length > 50 ? '...' : ''}"
+              📐 Position: \${element.getBoundingClientRect().top}, \${element.getBoundingClientRect().left}
+              👁️ Sichtbar: \${element.offsetParent !== null}
+              🔧 HTML: \${element.outerHTML.substring(0, 150)}\${element.outerHTML.length > 150 ? '...' : ''}\`);
+          }
+          elementIndex++;
+        }
+      });
+      
+      // Spezielle Suche nach versteckten/dynamischen Elementen
+      console.log('\\n🔍 === VERSTECKTE/DYNAMISCHE ELEMENTE ===');
+      const hiddenElements = document.querySelectorAll('[style*="display: none"], [hidden], .hidden');
+      console.log(\`👻 Versteckte Elemente: \${hiddenElements.length}\`);
+      
+      // Suche nach Shadow DOM Elementen
+      console.log('\\n🌑 === SHADOW DOM ELEMENTE ===');
+      const elementsWithShadow = document.querySelectorAll('*');
+      let shadowCount = 0;
+      elementsWithShadow.forEach(el => {
+        if (el.shadowRoot) {
+          shadowCount++;
+          console.log(\`🌑 Shadow Root gefunden in: \${el.tagName}\`);
+        }
+      });
+      console.log(\`🌑 Shadow DOM Elemente: \${shadowCount}\`);
+      
+      console.log('\\n🔍 === FIREBASE-SPEZIFISCHE ELEMENTE ===');
+      const firebaseElements = [
+        ...document.querySelectorAll('[data-testid]'),
+        ...document.querySelectorAll('[data-value]'),
+        ...document.querySelectorAll('[data-user-id]'),
+        ...document.querySelectorAll('.firebase'),
+        ...document.querySelectorAll('.goog'),
+        ...document.querySelectorAll('.mat'),
+        ...document.querySelectorAll('.mdc')
+      ];
+      
+      firebaseElements.forEach((el, idx) => {
+        if (idx < 10 && el.offsetParent !== null) { // Nur erste 10 sichtbare
+          console.log(\`🔥 Firebase Element \${idx}: \${el.tagName} - "\${el.textContent?.trim().substring(0, 50)}"\`);
+        }
+      });
+      
+      console.log('\\n🔍 === SEITEN-KONTEXT ANALYSE ===');
+      console.log('📄 Body Classes:', document.body.className);
+      console.log('🎯 Active Element:', document.activeElement?.tagName, document.activeElement?.className);
+      console.log('📱 Viewport:', window.innerWidth, 'x', window.innerHeight);
+      console.log('🖱️ Mouse Position: Nicht verfügbar in automatischem Script');
+      
+      console.log('\\n🔍 === ENDE VOLLSTÄNDIGE ANALYSE ===\\n');
+      
+      // Delete-Button suchen und klicken (Firebase Console spezifisch)
+      await wait(500); // Zusätzliche Wartezeit nach Analyse
+      
+      // STRATEGISCHE PAUSE UND INTERAKTION
+      console.log('\\n⏰ === STRATEGISCHE INTERAKTIONS-TESTS ===');
+      
+      // Test 1: Keyboard Navigation
+      console.log('⌨️ Test 1: Keyboard Navigation...');
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+      await wait(200);
+      console.log('🎯 Aktives Element nach Tab:', document.activeElement?.tagName, document.activeElement?.textContent?.trim());
+      
+      // Test 2: Mouse Events simulieren
+      console.log('🖱️ Test 2: Mouse Events auf Benutzer-Zeile...');
+      if (userRow) {
+        userRow.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        await wait(200);
+        userRow.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+        await wait(300);
+      }
+      
+      // Test 3: Doppelklick
+      console.log('🖱️ Test 3: Doppelklick auf Benutzer-Zeile...');
+      if (userRow) {
+        userRow.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        await wait(300);
+      }
+      
+      // Test 4: Suche nach dynamisch geladenen Elementen
+      console.log('🔄 Test 4: Prüfe auf neue Elemente nach Interaktion...');
+      const newButtons = document.querySelectorAll('button');
+      console.log(\`🆕 Aktuelle Button-Anzahl: \${newButtons.length}\`);
+      
+      // Test 5: Versuche alle möglichen Klicks
+      console.log('🎯 Test 5: Systematische Klick-Tests...');
+      const potentialTriggers = [
+        ...document.querySelectorAll('td'), // Tabellen-Zellen
+        ...document.querySelectorAll('tr'), // Tabellen-Zeilen
+        ...document.querySelectorAll('.user-row, .table-row'), // User-spezifische Klassen
+        ...document.querySelectorAll('[data-user-id], [data-uid]') // User-ID Attribute
+      ];
+      
+      for (let i = 0; i < Math.min(5, potentialTriggers.length); i++) {
+        const trigger = potentialTriggers[i];
+        if (trigger && trigger.textContent?.includes(user.email)) {
+          console.log(\`🖱️ Klicke auf Trigger \${i}: \${trigger.tagName} - "\${trigger.textContent?.trim().substring(0, 30)}"\`);
+          trigger.click();
+          await wait(300);
+          
+          // Prüfe ob neue Buttons erschienen sind
+          const buttonsAfterClick = document.querySelectorAll('button').length;
+          console.log(\`📊 Buttons nach Klick \${i}: \${buttonsAfterClick}\`);
+        }
+      }
+      
+      console.log('\\n🔍 === FINALE BUTTON-SUCHE NACH ALLEN TESTS ===');
+      
+      // Alle verfügbaren Buttons nochmal checken
+      const finalButtons = Array.from(document.querySelectorAll('button'));
+      console.log(\`🎯 Finale Button-Anzahl: \${finalButtons.length}\`);
+      
+      finalButtons.forEach((btn, idx) => {
+        if (btn.offsetParent !== null) {
+          const text = btn.textContent?.toLowerCase() || '';
+          const label = btn.getAttribute('aria-label')?.toLowerCase() || '';
+          const title = btn.getAttribute('title')?.toLowerCase() || '';
+          const className = btn.className?.toLowerCase() || '';
+          
+          if (text.includes('delete') || text.includes('löschen') || 
+              text.includes('remove') || text.includes('trash') ||
+              label.includes('delete') || label.includes('löschen') ||
+              title.includes('delete') || title.includes('löschen') ||
+              className.includes('delete') || className.includes('remove')) {
+            console.log(\`⭐ POTENTIELLER DELETE-BUTTON \${idx}:
+              📝 Text: "\${btn.textContent?.trim()}"
+              🏷️ Label: "\${btn.getAttribute('aria-label') || 'N/A'}"
+              🏷️ Title: "\${btn.getAttribute('title') || 'N/A'}"
+              🎨 Class: "\${btn.className}"
+              📍 Position: \${btn.getBoundingClientRect().top}, \${btn.getBoundingClientRect().left}
+              👁️ Sichtbar: \${btn.offsetParent !== null}\`);
+          }
+        }
+      });
+      
+      console.log('\\n⏰ === ENDE STRATEGISCHE TESTS ===\\n');
+      
+      // EINFACHE UND DIREKTE FIREBASE CONSOLE LÖSUNG
+      console.log(\`🎯 Suche Delete-Button für: \${user.email}\`);
+      
+      let deleteButton = null;
+      
+      // STRATEGIE 1: Direkt nach "Konto löschen" Text suchen
+      console.log('🔍 Strategie 1: Direkte Textsuche nach "Konto löschen"...');
+      const allElements = document.querySelectorAll('*');
+      
+      for (const element of allElements) {
+        if (element.offsetParent !== null && element.textContent) {
+          const text = element.textContent.trim();
+          if (text === 'Konto löschen') {
+            // Finde das klickbare Parent-Element
+            let clickableParent = element;
+            while (clickableParent && clickableParent.tagName !== 'BUTTON' && clickableParent.getAttribute('role') !== 'menuitem') {
+              clickableParent = clickableParent.parentElement;
+            }
+            
+            if (clickableParent && (clickableParent.tagName === 'BUTTON' || clickableParent.getAttribute('role') === 'menuitem')) {
+              deleteButton = clickableParent;
+              console.log(\`✅ DIREKTER MATCH! Gefunden: "\${text}" in \${clickableParent.tagName}\`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // STRATEGIE 2: Fallback - alle Buttons mit löschen
+      if (!deleteButton) {
+        console.log('🔍 Strategie 2: Fallback - alle Buttons mit "löschen"...');
+        const allButtons = document.querySelectorAll('button, [role="menuitem"], [role="button"]');
+        
+        for (const btn of allButtons) {
+          if (btn.offsetParent !== null) {
+            const text = btn.textContent.toLowerCase();
+            if (text.includes('konto') && text.includes('löschen')) {
+              deleteButton = btn;
+              console.log(\`✅ Fallback gefunden: "\${btn.textContent.trim()}"\`);
+              break;
+            }
+          }
+        }
+      }
+      
+      // STRATEGIE 3: Noch einfacher - nur nach "löschen"
+      if (!deleteButton) {
+        console.log('🔍 Strategie 3: Einfach - nur "löschen"...');
+        const allClickable = document.querySelectorAll('button, [role="menuitem"], [role="button"], a');
+        
+        for (const element of allClickable) {
+          if (element.offsetParent !== null) {
+            const text = element.textContent.toLowerCase();
+            if (text.includes('löschen') && !text.includes('deaktivieren')) {
+              deleteButton = element;
+              console.log(\`✅ Einfacher Match: "\${element.textContent.trim()}"\`);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (!deleteButton) {
+        console.log(\`⚠️ Delete-Button nicht gefunden für: \${user.email}\`);
+        console.log('🔍 DETAILLIERTE DEBUG-INFORMATIONEN:');
+        
+        // Debug: Zeige alle verfügbaren Buttons mit mehr Details
+        console.log('\\n📋 ALLE SICHTBAREN BUTTONS:');
+        const allButtons = Array.from(document.querySelectorAll('button'));
+        allButtons.forEach((btn, idx) => {
+          if (btn.offsetParent !== null) {
+            const text = btn.textContent.trim();
+            const ariaLabel = btn.getAttribute('aria-label') || 'N/A';
+            const title = btn.getAttribute('title') || 'N/A';
+            const className = btn.className || 'N/A';
+            const dataTestId = btn.getAttribute('data-testid') || 'N/A';
+            const dataValue = btn.getAttribute('data-value') || 'N/A';
+            console.log(\`Button \${idx}: 
+              Text: "\${text}"
+              Aria-Label: "\${ariaLabel}"
+              Title: "\${title}"
+              Class: "\${className}"
+              Data-TestId: "\${dataTestId}"
+              Data-Value: "\${dataValue}"
+              HTML: \${btn.outerHTML.substring(0, 200)}...\`);
+          }
+        });
+        
+        console.log('\\n� ALLE SICHTBAREN MENÜ-ITEMS:');
+        const menuItems = [
+          ...document.querySelectorAll('[role="menuitem"]'),
+          ...document.querySelectorAll('[role="option"]'),
+          ...document.querySelectorAll('.mat-menu-item')
+        ];
+        menuItems.forEach((item, idx) => {
+          if (item.offsetParent !== null) {
+            console.log(\`MenuItem \${idx}: 
+              Text: "\${item.textContent.trim()}"
+              Role: "\${item.getAttribute('role') || 'N/A'}"
+              Class: "\${item.className || 'N/A'}"
+              HTML: \${item.outerHTML.substring(0, 200)}...\`);
+          }
+        });
+        
+        console.log('\\n🔍 AKTUELLE BENUTZER-ZEILE:');
+        if (userRow) {
+          console.log(\`Zeilen-Text: "\${userRow.textContent.trim()}"\`);
+          console.log(\`Zeilen-HTML: \${userRow.outerHTML.substring(0, 300)}...\`);
+        }
+        
+        console.log('\\n🌐 AKTUELLE URL:', window.location.href);
+        console.log('🏷️ SEITEN-TITEL:', document.title);
+        
+        skippedCount++;
+        continue;
+      }
+      
+      deleteButton.click();
+      await wait(500);
+      
+      // Bestätigungs-Button suchen und klicken (erweiterte Suche)
+      console.log('🔍 Suche Bestätigungs-Button...');
+      await wait(300); // Warten bis Dialog erscheint
+      
+      const confirmButtons = [
+        ...Array.from(document.querySelectorAll('button')).filter(btn => {
+          const text = btn.textContent.toLowerCase();
+          return (text.includes('delete') || text.includes('löschen') || 
+                  text.includes('konto löschen') || text.includes('confirm') ||
+                  text.includes('bestätigen') || text.includes('ja') ||
+                  text.includes('yes') || text.includes('ok')) 
+                 && btn.offsetParent !== null;
+        }),
+        ...document.querySelectorAll('[data-testid*="confirm"]'),
+        ...document.querySelectorAll('[aria-label*="confirm"]'),
+        ...document.querySelectorAll('[aria-label*="bestätigen"]')
+      ];
+      
+      let confirmButton = null;
+      for (const btn of confirmButtons) {
+        if (btn.offsetParent !== null) {
+          confirmButton = btn;
+          console.log(\`✅ Bestätigungs-Button gefunden: "\${btn.textContent.trim()}"\`);
+          break;
+        }
+      }
+      
+      if (confirmButton) {
+        confirmButton.click();
+        await wait(500);
+        deletedCount++;
+        console.log(\`✅ Gelöscht: \${user.email}\`);
+      } else {
+        console.log(\`⚠️ Bestätigung nicht gefunden für: \${user.email}\`);
+        console.log('🔍 Verfügbare Bestätigungs-Buttons:');
+        
+        const allDialogButtons = Array.from(document.querySelectorAll('button'));
+        allDialogButtons.forEach((btn, idx) => {
+          if (btn.offsetParent !== null) {
+            console.log(\`Dialog-Button \${idx}: "\${btn.textContent.trim()}" | aria-label: "\${btn.getAttribute('aria-label') || 'N/A'}"\`);
+          }
+        });
+        
+        skippedCount++;
+        // ESC drücken um Dialog zu schließen
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+        await wait(200);
+      }
+      
+    } catch (error) {
+      console.log(\`❌ Fehler bei \${user.email}:\`, error);
+      skippedCount++;
+    }
+    
+    // Pause zwischen Löschungen
+    await wait(800);
+  }
+  
+  console.log(\`\\n🎉 AUTH-BEREINIGUNG ABGESCHLOSSEN!
+✅ Gelöscht: \${deletedCount} Accounts
+⚠️ Übersprungen: \${skippedCount} Accounts\`);
+  
+  if (deletedCount > 0) {
+    console.log('🔄 Lade Seite in 3 Sekunden neu...');
+    setTimeout(() => window.location.reload(), 3000);
+  }
+})();`;
+
+      // Zeige Script in einem Modal/Popup
+      showAuthCleanupScript(scriptCode, authUsersToClean.length);
+    }
+
+    // Neue Funktion: Script-Anzeige Modal
+    function showAuthCleanupScript(scriptCode, userCount) {
+      // Erstelle Modal
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: monospace;
+      `;
+      
+      const modalContent = document.createElement('div');
+      modalContent.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 90%;
+        max-height: 90%;
+        overflow: auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      `;
+      
+      modalContent.innerHTML = `
+        <h3 style="margin-top: 0; color: #dc3545;">🔥 Auth-Bereinigung Script</h3>
+        <p><strong>${userCount} Auth-Accounts</strong> müssen aus Firebase Authentication gelöscht werden.</p>
+        <p><strong>Anleitung:</strong></p>
+        <ol>
+          <li>Gehen Sie zu: <a href="https://console.firebase.google.com/project/sae-wien-mobile/authentication/users" target="_blank">Firebase Console → Authentication</a></li>
+          <li>Öffnen Sie Browser-Entwicklertools (F12)</li>
+          <li>Gehen Sie zum "Console" Tab</li>
+          <li>Kopieren Sie den Script-Code unten</li>
+          <li>Fügen Sie ihn in die Console ein und drücken Enter</li>
+        </ol>
+        
+        <div style="margin: 15px 0;">
+          <button id="copy-script-btn" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">📋 Script kopieren</button>
+          <button id="close-modal-btn" style="background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Schließen</button>
+        </div>
+        
+        <textarea id="script-code" readonly style="width: 100%; height: 300px; font-family: monospace; font-size: 12px; border: 1px solid #ccc; padding: 10px;">${scriptCode}</textarea>
+      `;
+      
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+      
+      // Event Listener
+      document.getElementById('copy-script-btn').addEventListener('click', () => {
+        const textarea = document.getElementById('script-code');
+        textarea.select();
+        document.execCommand('copy');
+        
+        const btn = document.getElementById('copy-script-btn');
+        btn.textContent = '✅ Kopiert!';
+        btn.style.background = '#28a745';
+        setTimeout(() => {
+          btn.textContent = '📋 Script kopieren';
+          btn.style.background = '#007bff';
+        }, 2000);
+      });
+      
+      document.getElementById('close-modal-btn').addEventListener('click', () => {
+        document.body.removeChild(modal);
+      });
+      
+      // Modal schließen bei Klick außerhalb
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          document.body.removeChild(modal);
+        }
+      });
     }
 
     async function loadBenutzerData(uid) {
@@ -175,25 +999,35 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
     // Status-Overlay Funktionen wie im Mitarbeiterverzeichnis
     const statusOverlay = document.getElementById('status-overlay');
     const statusBox = document.getElementById('status-box');
+    const errorBox = document.getElementById('error-box');
     let loadingCount = 0;
     let lastLoadingMsg = '';
+    
     function startLoading(msg) {
       loadingCount++;
       lastLoadingMsg = msg || 'Lädt...';
       statusBox.textContent = lastLoadingMsg;
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
       statusOverlay.style.display = 'flex';
     }
+    
     function stopLoading() {
       loadingCount = Math.max(0, loadingCount - 1);
       if (loadingCount === 0) {
         statusOverlay.style.display = 'none';
         statusBox.textContent = '';
+        errorBox.style.display = 'none';
+        errorBox.textContent = '';
       } else {
         statusBox.textContent = lastLoadingMsg;
       }
     }
+    
     function showStatusOnce(msg, ms = 2000) {
       statusBox.textContent = msg;
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
       statusOverlay.style.display = 'flex';
       setTimeout(() => {
         if (loadingCount === 0) {
@@ -202,6 +1036,238 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
         }
       }, ms);
     }
+    
+    function showStatusWithError(msg, errorMsg, ms = 5000) {
+      statusBox.textContent = msg;
+      errorBox.textContent = errorMsg;
+      errorBox.style.display = 'block';
+      statusOverlay.style.display = 'flex';
+      setTimeout(() => {
+        if (loadingCount === 0) {
+          statusOverlay.style.display = 'none';
+          statusBox.textContent = '';
+          errorBox.style.display = 'none';
+          errorBox.textContent = '';
+        }
+      }, ms);
+    }
+
+    // TAB Upload Funktionen
+    function mapCourseCode(courseCode) {
+      const courseMap = {
+        'F': 'Film',
+        'A': 'Audio', 
+        'G': 'Games',
+        'M': 'Music Business',
+        'W': 'Web and Mobile',
+        'V': 'Voice',
+        'AN': 'Animation',
+        'CT': 'Creative Technologies',
+        'MA': 'MA/MSC Professional Practice',
+        'D': 'Design',
+        'C': 'Content Creation'
+      };
+      
+      if (!courseCode) return '';
+      
+      // Extrahiere ersten Buchstaben(en) vor dem Unterstrich
+      const prefix = courseCode.split('_')[0];
+      return courseMap[prefix] || courseCode;
+    }
+
+    function mapCampusCode(campusCode) {
+      const campusMap = {
+        'VIE': 'Wien'
+      };
+      return campusMap[campusCode] || campusCode;
+    }
+
+    function extractEmail(contactsField) {
+      if (!contactsField) return '';
+      
+      // Regex um Email-Adresse zu extrahieren
+      const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/;
+      const match = contactsField.match(emailRegex);
+      
+      return match ? match[1] : '';
+    }
+
+    function parseTabFile(content) {
+      const lines = content.split('\n').filter(line => line.trim());
+      if (lines.length === 0) return [];
+      
+      const headers = lines[0].split('\t').map(h => h.trim());
+      const users = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split('\t').map(v => v.trim());
+        const user = {};
+        
+        headers.forEach((header, index) => {
+          user[header] = values[index] || '';
+        });
+        
+        // Nur verarbeiten wenn lastname, firstname und student number vorhanden
+        if (user.lastname && user.firstname && user['student number']) {
+          const extractedEmail = extractEmail(user.contacts || '');
+          
+          // Nur hinzufügen wenn auch eine gültige Email gefunden wurde
+          if (extractedEmail) {
+            const processedUser = {
+              lastName: user.lastname,
+              firstName: user.firstname,
+              studentNumber: user['student number'],
+              campus: mapCampusCode(user.campus || ''),
+              course: mapCourseCode(user.course || ''),
+              email: extractedEmail,
+              role: 'student'
+            };
+            users.push(processedUser);
+            console.log('Verarbeiteter Benutzer:', processedUser);
+          } else {
+            console.warn('Benutzer übersprungen - keine gültige Email gefunden:', user);
+          }
+        } else {
+          console.warn('Benutzer übersprungen - fehlende Grunddaten:', user);
+        }
+      }
+      
+      return users;
+    }
+
+    function showPreviewDialog(users) {
+      return new Promise((resolve) => {
+        const overlay = document.getElementById('preview-overlay');
+        const list = document.getElementById('preview-list');
+        
+        list.innerHTML = '';
+        users.forEach(user => {
+          const item = document.createElement('div');
+          item.className = 'preview-item';
+          item.innerHTML = `
+            <strong>${user.firstName} ${user.lastName}</strong><br>
+            <small>Student Nr: ${user.studentNumber} | Campus: ${user.campus} | Kurs: ${user.course}<br>
+            Email: ${user.email}</small>
+          `;
+          list.appendChild(item);
+        });
+        
+        overlay.style.display = 'flex';
+        
+        document.getElementById('preview-confirm').onclick = () => {
+          overlay.style.display = 'none';
+          resolve(true);
+        };
+        
+        document.getElementById('preview-cancel').onclick = () => {
+          overlay.style.display = 'none';
+          resolve(false);
+        };
+      });
+    }
+
+    async function createUsersFromTab(users) {
+      startLoading('Erstelle Benutzer...');
+      let successCount = 0;
+      let errorMessages = [];
+      
+      for (const userData of users) {
+        try {
+          const email = userData.email;
+          const password = userData.studentNumber;
+          
+          console.log('Versuche Benutzer zu erstellen:', userData);
+          
+          if (!email || !password) {
+            const errorMsg = `${userData.firstName} ${userData.lastName}: Fehlende Email oder Studierendennummer`;
+            console.warn(errorMsg);
+            errorMessages.push(errorMsg);
+            continue;
+          }
+          
+          // Email-Format validieren
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            const errorMsg = `${userData.firstName} ${userData.lastName}: Ungültige Email-Adresse (${email})`;
+            console.warn(errorMsg);
+            errorMessages.push(errorMsg);
+            continue;
+          }
+          
+          // Firebase Auth User erstellen
+          console.log('Erstelle Auth User für:', email);
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          console.log('Auth User erstellt:', userCredential.user.uid);
+          
+          // Firestore Dokument erstellen
+          console.log('Erstelle Firestore Dokument...');
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            ...userData,
+            createdAt: Timestamp.now()
+          });
+          console.log('Firestore Dokument erstellt');
+          
+          // Passwort Reset Email senden
+          console.log('Sende Passwort Reset Email...');
+          await sendPasswordResetEmail(auth, email);
+          console.log('Passwort Reset Email gesendet');
+          
+          successCount++;
+          console.log(`Benutzer ${userData.firstName} ${userData.lastName} erfolgreich erstellt`);
+          
+        } catch (err) {
+          const errorMsg = `${userData.firstName} ${userData.lastName}: ${err.message}`;
+          console.error('Fehler beim Erstellen von Benutzer:', userData, err);
+          errorMessages.push(errorMsg);
+        }
+      }
+      
+      stopLoading();
+      
+      let statusMessage = `${successCount} von ${users.length} Benutzern erfolgreich erstellt!`;
+      
+      if (errorMessages.length > 0) {
+        let errorDisplay = errorMessages.slice(0, 5).join('\n');
+        if (errorMessages.length > 5) {
+          errorDisplay += `\n... und ${errorMessages.length - 5} weitere Fehler`;
+        }
+        showStatusWithError(statusMessage, errorDisplay, 8000);
+      } else {
+        showStatusOnce(statusMessage, 3000);
+      }
+      
+      await loadBenutzerListe();
+    }
+
+    // TAB Upload Event Listener
+    document.getElementById('csv-upload').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const content = event.target.result;
+          const users = parseTabFile(content);
+          
+          if (users.length === 0) {
+            showStatusOnce('Keine gültigen Benutzer in der TAB-Datei gefunden.');
+            return;
+          }
+          
+          const confirmed = await showPreviewDialog(users);
+          if (confirmed) {
+            await createUsersFromTab(users);
+          }
+        } catch (err) {
+          showStatusOnce('Fehler beim Verarbeiten der TAB-Datei: ' + err.message);
+        }
+        
+        // Input zurücksetzen
+        e.target.value = '';
+      };
+      reader.readAsText(file);
+    });
 
     benutzerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -279,30 +1345,74 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
       Array.from(benutzerUl.children).forEach(li => li.classList.remove('selected'));
     });
 
+    // Separate Funktion für einzelne Benutzerlöschung (wird von UI und Bulk verwendet)
+    async function deleteSingleUser(userId, showMessages = true) {
+      try {
+        // Zuerst Benutzerdaten aus Firestore laden um Email zu bekommen
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        const userData = userDoc.exists() ? userDoc.data() : null;
+        const userEmail = userData ? userData.email : null;
+        
+        // Firestore-Dokument löschen
+        await deleteDoc(doc(db, 'users', userId));
+        
+        // Versuche den Auth-User zu löschen (nur für eigenen Account möglich)
+        let authDeleted = false;
+        try {
+          const currentUser = auth.currentUser;
+          if (currentUser && currentUser.uid === userId) {
+            await deleteUser(currentUser);
+            authDeleted = true;
+            console.log('Firebase Auth User ebenfalls gelöscht');
+          } else {
+            console.log('Hinweis: Firebase Auth User konnte nicht gelöscht werden (nur eigener Account möglich)');
+          }
+        } catch (authError) {
+          console.log('Auth User Löschung fehlgeschlagen:', authError.message);
+        }
+        
+        // Statusmeldung nur wenn gewünscht (bei Einzellöschung, nicht bei Bulk)
+        if (showMessages) {
+          if (authDeleted) {
+            showStatusOnce('Benutzer vollständig gelöscht (Firestore + Auth)!', 3000);
+          } else {
+            const message = userEmail 
+              ? `Benutzer aus Firestore gelöscht. Auth-Account (${userEmail}) mit Browser-Script bereinigen.`
+              : 'Benutzer aus Firestore gelöscht. Auth-Account mit Browser-Script bereinigen.';
+            showStatusOnce(message, 5000);
+          }
+        }
+        
+        return { success: true, authDeleted, userEmail };
+      } catch (error) {
+        console.error(`Fehler beim Löschen von Benutzer ${userId}:`, error);
+        if (showMessages) {
+          showStatusOnce('Fehler beim Löschen: ' + error.message);
+        }
+        return { success: false, error: error.message };
+      }
+    }
+
     document.getElementById('benutzer-delete-btn').addEventListener('click', async () => {
       if (!selectedBenutzerId) return;
       if (!confirm('Soll dieser Benutzer wirklich gelöscht werden?')) return;
-      await deleteDoc(doc(db, 'users', selectedBenutzerId));
-      try {
-        const auth = getAuth();
-        // Nur wenn der aktuell eingeloggte User sich selbst löscht, auch aus Auth entfernen und ausloggen
-        if (auth.currentUser && auth.currentUser.uid === selectedBenutzerId) {
-          await deleteUser(auth.currentUser);
-          alert('Dein Benutzerkonto wurde gelöscht. Du wirst abgemeldet.');
-          window.location.href = 'index.html';
-          return;
-        }
-        // Für andere User ist ein Löschen aus Auth im Client nicht möglich (nur mit Admin SDK/Cloud Function)
-      } catch (err) {
-        // Fehler ignorieren, da im Client nicht möglich
+      
+      const result = await deleteSingleUser(selectedBenutzerId, true);
+      
+      if (result.success) {
+        await loadBenutzerListe();
+        benutzerForm.classList.add('hidden');
+        selectedBenutzerId = null;
       }
-      alert('Benutzer gelöscht!');
-      await loadBenutzerListe();
-      benutzerForm.classList.add('hidden');
-      selectedBenutzerId = null;
     });
 
     window.addEventListener('DOMContentLoaded', loadBenutzerListe);
+
+    // Bulk-Selection Event Listeners
+    document.getElementById('toggle-selection-mode').addEventListener('click', toggleSelectionMode);
+    document.getElementById('bulk-select-all').addEventListener('click', selectAllUsers);
+    document.getElementById('bulk-clear-selection').addEventListener('click', clearSelection);
+    document.getElementById('bulk-delete-users').addEventListener('click', bulkDeleteUsers);
 
     // Filterfunktion für die Suchleiste
     const searchInput = document.getElementById('benutzer-search');
@@ -319,8 +1429,9 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
   </script>
 </head>
 <body>
-  <div id="status-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.7);z-index:2000;justify-content:center;align-items:center;">
+  <div id="status-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.7);z-index:2000;justify-content:center;align-items:center;flex-direction:column;gap:15px;">
     <div class="status-box" id="status-box" style="background:#fff;border:1px solid #bbb;border-radius:8px;box-shadow:0 2px 16px #0002;padding:28px 36px;font-size:1.2em;color:#333;min-width:180px;text-align:center;"></div>
+    <div class="error-box" id="error-box"></div>
   </div>
   <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/SAE_Logo_Black_1500x1500px.png" alt="SAE Logo" class="sae-logo">
   <a href="index.html" style="position: fixed; top: 24px; left: 160px; background: #fff; color: #007bff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 10px 18px; font-weight: 600; text-decoration: none; font-size: 1.05em; z-index: 1000; border: 1px solid #e1e5e9; transition: background 0.2s;">
@@ -330,12 +1441,21 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
     <span style="font-size:1.3em;">👤</span> Benutzer erstellen
   </a>
   <label for="csv-upload" id="csv-upload-label" style="position: fixed; top: 74px; right: 32px; background: #fff; color: #007bff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 10px 18px; font-weight: 600; text-decoration: none; font-size: 1.05em; z-index: 1000; border: 1px solid #e1e5e9; transition: background 0.2s; display: flex; align-items: center; gap: 8px; cursor:pointer;">
-    <span style="font-size:1.3em;">📄</span> CSV hochladen
-    <input id="csv-upload" type="file" accept=".csv" style="display:none;" />
+    <span style="font-size:1.3em;">📄</span> TAB hochladen
+    <input id="csv-upload" type="file" accept=".txt,.tab" style="display:none;" />
   </label>
   <h1>Benutzerverzeichnis</h1>
   <div class="main-flex">
     <div class="benutzer-liste">
+      <div class="selection-mode-toggle">
+        <button id="toggle-selection-mode">Mehrfachauswahl aktivieren</button>
+      </div>
+      <div id="bulk-actions" class="bulk-actions">
+        <button id="bulk-select-all" class="bulk-select-all-btn">Alle auswählen</button>
+        <button id="bulk-clear-selection" class="bulk-clear-btn">Auswahl aufheben</button>
+        <button id="bulk-delete-users" class="bulk-delete-btn">Ausgewählte löschen</button>
+        <div id="selection-count" style="margin-top: 8px; font-size: 14px; color: #6c757d;"></div>
+      </div>
       <input id="benutzer-search" type="text" placeholder="Suchen..." style="width:100%;margin-bottom:16px;padding:10px 14px;border-radius:8px;border:1.5px solid #e1e5e9;font-size:1em;box-sizing:border-box;">
       <ul id="benutzer-ul"></ul>
     </div>
@@ -397,6 +1517,19 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, sendPasswordResetE
         <button id="benutzer-delete-btn" type="button" style="background:#dc3545; color:#fff;">Löschen</button>
       </div>
     </form>
+  </div>
+
+  <!-- Preview Dialog für TAB Upload -->
+  <div id="preview-overlay">
+    <div class="preview-dialog">
+      <h2>Neue Benutzer bestätigen</h2>
+      <p>Folgende Benutzer werden erstellt:</p>
+      <div id="preview-list" class="preview-list"></div>
+      <div class="preview-actions">
+        <button id="preview-confirm" class="preview-confirm">Bestätigen</button>
+        <button id="preview-cancel" class="preview-cancel">Abbrechen</button>
+      </div>
+    </div>
   </div>
 </body>
 </html>
